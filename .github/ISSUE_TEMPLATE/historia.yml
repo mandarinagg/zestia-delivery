@@ -1,0 +1,29 @@
+name: Historia de usuario
+description: Funcionalidad desde la perspectiva de un rol
+title: "[Historia] "
+labels: ["tipo:story"]
+body:
+  - type: textarea
+    id: historia
+    attributes:
+      label: Historia
+      placeholder: Como [rol] quiero [acción] para [beneficio].
+    validations:
+      required: true
+  - type: textarea
+    id: criterios
+    attributes:
+      label: Criterios de aceptación
+      placeholder: |
+        - Dado … cuando … entonces …
+    validations:
+      required: true
+  - type: textarea
+    id: seguridad
+    attributes:
+      label: Permisos / tenant / auditoría
+      placeholder: Roles autorizados, datos sensibles, acciones auditadas.
+  - type: textarea
+    id: notas
+    attributes:
+      label: Notas, diseño, dependencias

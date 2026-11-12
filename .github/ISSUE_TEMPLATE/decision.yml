@@ -1,0 +1,24 @@
+name: Decisión / Spike
+description: Decisión pendiente o investigación acotada en el tiempo
+title: "[Decisión] "
+labels: ["tipo:decision"]
+body:
+  - type: textarea
+    id: pregunta
+    attributes:
+      label: Pregunta a resolver
+    validations:
+      required: true
+  - type: textarea
+    id: opciones
+    attributes:
+      label: Opciones y criterios
+  - type: input
+    id: limite
+    attributes:
+      label: Fecha límite / timebox
+  - type: textarea
+    id: salida
+    attributes:
+      label: Resultado esperado
+      placeholder: ADR, documento, prototipo…
