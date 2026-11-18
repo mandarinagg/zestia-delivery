@@ -9,6 +9,7 @@ import {
   boundariesRuleOptions,
   domainPurity,
 } from './boundaries.mjs';
+import { tenancyConfigs } from './tenancy.mjs';
 
 /**
  * Configuración ESLint (flat config) compartida.
@@ -23,6 +24,7 @@ export function createConfig({ rootDir }) {
         '**/build/**',
         '**/coverage/**',
         '**/.turbo/**',
+        '**/generated/**',
         'docs/**',
       ],
     },
@@ -43,6 +45,8 @@ export function createConfig({ rootDir }) {
       files: ['apps/api/**/*.ts'],
       rules: { '@typescript-eslint/consistent-type-imports': 'off' },
     },
+    // Multi-tenancy: sin acceso a la DB fuera de TenantDb (ver tenancy.mjs).
+    ...tenancyConfigs,
     {
       files: ['apps/web/**/*.{ts,tsx}'],
       languageOptions: { globals: { ...globals.browser } },
