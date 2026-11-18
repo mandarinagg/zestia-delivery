@@ -1,47 +1,132 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is(.dark, .dark *));
 
+/*
+ * Design tokens. Los pares texto/fondo están verificados WCAG AA
+ * (ver docs/UI.md y `pnpm --filter @zestia/web contrast`).
+ */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --border: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  color-scheme: light;
+  --radius: 0.5rem;
+
+  --background: #f4f6f8;
+  --foreground: #101820;
+  --card: #ffffff;
+  --card-foreground: #101820;
+  --muted: #e9edf1;
+  --muted-foreground: #4a5663;
+  --accent: #e3f0f3;
+  --accent-foreground: #0a4a59;
+  --border: #d3dae1;
+  --input: #6f7c89;
+  --ring: #0b6b7f;
+  --primary: #0b6b7f;
+  --primary-foreground: #ffffff;
+  --destructive: #b42318;
+  --destructive-foreground: #ffffff;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1c2833;
+  --sidebar-border: #d3dae1;
+
+  --status-neutral-bg: #e9edf1;
+  --status-neutral-fg: #2f3a45;
+  --status-neutral-dot: #6b7886;
+  --status-info-bg: #deeefb;
+  --status-info-fg: #0b4a7a;
+  --status-info-dot: #1f78c1;
+  --status-success-bg: #daf1e3;
+  --status-success-fg: #0b5a33;
+  --status-success-dot: #1e8a52;
+  --status-warning-bg: #ffebc2;
+  --status-warning-fg: #6b4300;
+  --status-warning-dot: #a86400;
+  --status-danger-bg: #fbe0df;
+  --status-danger-fg: #8f1d1d;
+  --status-danger-dot: #c9302c;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --ring: oklch(0.556 0 0);
+  color-scheme: dark;
+  --background: #0e1318;
+  --foreground: #e6ebf0;
+  --card: #151c23;
+  --card-foreground: #e6ebf0;
+  --muted: #1e2730;
+  --muted-foreground: #a3afbb;
+  --accent: #17323a;
+  --accent-foreground: #b6e4ee;
+  --border: #2b3641;
+  --input: #7d8a97;
+  --ring: #4fb8cc;
+  --primary: #4fb8cc;
+  --primary-foreground: #08242b;
+  --destructive: #f0605a;
+  --destructive-foreground: #1a0605;
+
+  --sidebar: #11171d;
+  --sidebar-foreground: #d5dce3;
+  --sidebar-border: #2b3641;
+
+  --status-neutral-bg: #26303a;
+  --status-neutral-fg: #d5dce3;
+  --status-neutral-dot: #94a1ae;
+  --status-info-bg: #12304a;
+  --status-info-fg: #a9d4f5;
+  --status-info-dot: #5aaeea;
+  --status-success-bg: #11382a;
+  --status-success-fg: #9be0bc;
+  --status-success-dot: #4cc48a;
+  --status-warning-bg: #44300a;
+  --status-warning-fg: #f5d48a;
+  --status-warning-dot: #e8a92c;
+  --status-danger-bg: #4a1b1b;
+  --status-danger-fg: #f5b1ae;
+  --status-danger-dot: #f0605a;
 }
 
 @theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --font-sans:
+    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
   --color-border: var(--border);
+  --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-status-neutral-bg: var(--status-neutral-bg);
+  --color-status-neutral-fg: var(--status-neutral-fg);
+  --color-status-neutral-dot: var(--status-neutral-dot);
+  --color-status-info-bg: var(--status-info-bg);
+  --color-status-info-fg: var(--status-info-fg);
+  --color-status-info-dot: var(--status-info-dot);
+  --color-status-success-bg: var(--status-success-bg);
+  --color-status-success-fg: var(--status-success-fg);
+  --color-status-success-dot: var(--status-success-dot);
+  --color-status-warning-bg: var(--status-warning-bg);
+  --color-status-warning-fg: var(--status-warning-fg);
+  --color-status-warning-dot: var(--status-warning-dot);
+  --color-status-danger-bg: var(--status-danger-bg);
+  --color-status-danger-fg: var(--status-danger-fg);
+  --color-status-danger-dot: var(--status-danger-dot);
 }
 
 @layer base {
@@ -49,6 +134,21 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans text-sm antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
