@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import { ROLES, can } from '@zestia/auth';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { expectTenantIsolation } from '../../testing/expect-tenant-isolation';
@@ -58,15 +59,20 @@ describe('GET /api/v1/merchants/:id', () => {
     await http.get('/api/v1/merchants/1').set(TEST_PRINCIPAL_HEADER, userId).expect(400);
   });
 
-  it('403 para roles sin acceso (repartidor, comercio)', async () => {
-    for (const role of ['COURIER', 'MERCHANT'] as const) {
+  // Matriz rol × endpoint, generada desde @zestia/auth (docs/TESTING.md, suite de permisos).
+  for (const role of ROLES) {
+    const allowed = can(role, 'merchants:read');
+    it(`${role}: ${allowed ? '200' : '403 PERMISSION_DENIED'}`, async () => {
       const { tenantId, userId } = await seeder.tenantWithMember(role);
       const id = await seeder.merchant(tenantId);
       const res = await request(app.getHttpServer())
         .get(`/api/v1/merchants/${id}`)
         .set(TEST_PRINCIPAL_HEADER, userId)
-        .expect(403);
-      expect(res.body).toMatchObject({ code: 'ROLE_NOT_ALLOWED' });
-    }
-  });
+        .expect(allowed ? 200 : 403);
+      if (!allowed) {
+        expect(res.body).toEqual({ statusCode: 403, code: 'PERMISSION_DENIED' });
+        expect(res.text).not.toContain(id);
+      }
+    });
+  }
 });
