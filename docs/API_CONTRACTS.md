@@ -109,6 +109,35 @@ Todas las respuestas llevan `Cache-Control: no-store`. Errores de este módulo: 
 
 `MerchantDetail` = `MerchantSummary` + `branches: Branch[]`. `Branch`: `id, merchantId, name, address, neighborhood, city, references, phone, openingHours, createdAt, updatedAt`.
 
+## Usuarios e invitaciones (`/api/v1/members`, `/api/v1/invitations`)
+
+> Implementado (issue #18). Esquemas Zod en `packages/contracts/src/members.ts`. Lectura: `users:read` (Propietario y Admin); cambios: `users:manage`. Todo lo que toque el rol Propietario (dar, quitar, deshabilitar, invitar) exige además `users:manage-owners` (solo Propietario). Todo cambio queda en la auditoría.
+
+| Método y ruta | Cuerpo / parámetros | Respuesta OK | Errores |
+|---|---|---|---|
+| `GET /members` | `status?` (`ACTIVE`/`DISABLED`), `q?` (nombre o email contiene), `cursor?`, `limit` (1–100, 50) | `200 { data: Member[], nextCursor }`, por nombre | `400 VALIDATION_FAILED` / `INVALID_CURSOR` |
+| `GET /members/:id` | — | `200 Member` | `400`, `404` |
+| `PATCH /members/:id` | `{ role }` (`OWNER`, `ADMIN`, `OPERATOR`, `SUPERVISOR`) | `200 Member` (mismo rol: sin cambios ni auditoría) | `400`, `403 PERMISSION_DENIED`, `404`, `409 SELF_MODIFICATION` / `LAST_OWNER` |
+| `POST /members/:id/disable` · `/enable` | — | `200 Member` | `403`, `404`, `409 SELF_MODIFICATION` / `LAST_OWNER` / `INVALID_STATUS_TRANSITION` |
+| `GET /invitations` | — | `200 { data: Invitation[] }` (abiertas: pendientes y vencidas, hasta 200, más nuevas primero) | — |
+| `POST /invitations` | `{ email, role }` | `201 Invitation` y email al invitado | `400`, `403`, `409 ALREADY_MEMBER` / `INVITATION_PENDING`, `502 MAIL_DELIVERY_FAILED` (no se guarda nada) |
+| `POST /invitations/:id/resend` | — | `200 Invitation` (token y vencimiento nuevos; el enlace anterior deja de servir) | `403`, `404`, `409 INVITATION_CLOSED`, `502` |
+| `POST /invitations/:id/revoke` | — | `204` | `403`, `404`, `409 INVITATION_CLOSED` |
+
+Aceptación, **sin sesión en la empresa** (el token del enlace es la autorización; exentas de CSRF, `Cache-Control: no-store`):
+
+| Método y ruta | Cuerpo | Respuesta OK | Errores |
+|---|---|---|---|
+| `POST /auth/invitations/preview` | `{ token }` | `200 { tenantName, email, role, accountExists, expiresAt }` | `400 INVITATION_INVALID` (vencida, usada, revocada, empresa no activa o cuenta deshabilitada) |
+| `POST /auth/invitations/accept` | `{ token, name?, password? }` (nombre y contraseña solo si no hay cuenta) | `200 { accountCreated, email }`. **No inicia sesión** | `400 INVITATION_INVALID` / `ACCOUNT_DETAILS_REQUIRED`, `409 ALREADY_MEMBER` |
+
+- `Member`: `{ id (membresía), userId, name, email, role, status, accountStatus, createdAt }`. `status` es el de **esta empresa**; `accountStatus`, el de la cuenta global (la gestiona la plataforma).
+- `Invitation`: `{ id, email, role, status (PENDING/EXPIRED), invitedBy { id, name } | null, expiresAt, createdAt }`. Nunca incluye el token ni el enlace: solo los recibe el invitado por email.
+- Vencimiento: `INVITATION_TTL_HOURS` (168 = 7 días). Invitar de nuevo a un email con una invitación vencida la reemplaza.
+- Nadie se cambia el rol ni se deshabilita a sí mismo, y la empresa nunca queda sin un Propietario activo.
+- Repartidor y Comercio no se pueden asignar todavía: llegan con sus apps (R2).
+- Auditoría: `users.role_changed`, `.disabled`, `.enabled`, `.invited`, `.invitation_resent`, `.invitation_revoked`, `.invitation_accepted`. El email del invitado se registra como `{ redacted: true }`.
+
 ## API genérica de ingreso (R2)
 
 Autenticación: `Authorization: Bearer zd_live_<prefix>_<secret>` (API key por integración/tenant).

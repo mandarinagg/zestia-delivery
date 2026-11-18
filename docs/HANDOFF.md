@@ -1,16 +1,16 @@
 # Handoff — estado del trabajo
 
-> Última actualización: **2026-11-18** (tarde: #16, #17, login web y #19). Punto de partida para la próxima sesión (humana o de agentes).
+> Última actualización: **2026-11-18** (noche: #16, #17, login web, #19 y #18). Punto de partida para la próxima sesión (humana o de agentes).
 > Leer junto con [`CLAUDE.md`](../CLAUDE.md), [`ROADMAP.md`](ROADMAP.md) y [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
 
 ## Resumen
 
 Release **R1 — Fundaciones** en curso. Ya están el monorepo, la multi-tenancy con RLS, la autenticación con sesiones de servidor y el sistema de diseño **"Riel"**, con prototipos navegables. Todo corre **en local** con Docker Compose. El pase a producción va a los **servidores propios** del dueño y se define más adelante; ADR-013 (hosting cloud) queda pospuesto.
 
-**Rama más reciente:** `feat/19-comercios`, que incluye todo lo de abajo. Verificada el 2026-11-18:
+**Rama más reciente:** `feat/18-usuarios`, que incluye todo lo de abajo. Verificada el 2026-11-18:
 
 - `lint`, `typecheck` y `build` pasan; Prettier pasa en los archivos cambiados.
-- `pnpm test` pasa con **467 tests**: api 219, web 149, contracts 52, auth 45, domain 2.
+- `pnpm test` pasa con **530 tests**: api 254, web 169, contracts 60, auth 45, domain 2.
 - El contraste AA pasa: 150/150 pares.
 - Los tests de la web esperan hasta 3 s en `findBy…`/`waitFor` (`test-setup.ts`): con 1 s fallaban al azar con la máquina cargada.
 
@@ -28,7 +28,8 @@ Release **R1 — Fundaciones** en curso. Ya están el monorepo, la multi-tenancy
 | `feat/16-permisos` | Matriz rol → permiso, `@RequirePermission()` (#16) | `feat/r1-integracion` |
 | `feat/17-auditoria` | Auditoría con antes/después y consulta (#17) | `feat/16-permisos` |
 | `feat/14-login-web` | Login real en la web, sesión, guardas de ruta, cambio de empresa, logout | `feat/17-auditoria` |
-| **`feat/19-comercios`** | Comercios y sucursales: API, auditoría y pantallas. **Rama más reciente: incluye todo lo anterior** | `feat/14-login-web` |
+| `feat/19-comercios` | Comercios y sucursales: API, auditoría y pantallas | `feat/14-login-web` |
+| **`feat/18-usuarios`** | Usuarios del tenant e invitaciones por email: API, auditoría y pantallas. **Rama más reciente: incluye todo lo anterior** | `feat/19-comercios` |
 
 Flujo acordado: commits locales en ramas `feat/…`. El dueño decide cuándo pushear y cuándo mergear a `main`.
 
@@ -45,7 +46,7 @@ Flujo acordado: commits locales en ramas `feat/…`. El dueño decide cuándo pu
 | #16 Roles fijos y guardas de permisos | ✅ Hecho en `feat/16-permisos` (matriz en `packages/auth`, `@RequirePermission()`) |
 | #17 Auditoría transversal | ✅ Backend en `feat/17-auditoria` (`recordChange` + `auditDiff`, `GET /audit-logs`); la vista web va con la conexión del frontend |
 | #19 CRUD de comercios y sucursales | ✅ Hecho en `feat/19-comercios`: API con auditoría y pantallas `/panel/comercios` |
-| #18 Usuarios del tenant e invitaciones | Pendiente |
+| #18 Usuarios del tenant e invitaciones | ✅ Hecho en `feat/18-usuarios`: API con auditoría, `/panel/configuracion/usuarios` y aceptación pública `/invitacion` |
 
 ## Cómo levantarlo en local
 
@@ -101,9 +102,28 @@ pnpm dev             # API :3000 · web :5173
    - verificado de punta a punta contra la API real.
 
    Límites en [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
-5. **#18 Usuarios e invitaciones**, que necesita el camino de alta de usuarios: hoy solo existe el seed.
+5. ~~**#18 Usuarios e invitaciones.**~~ Hecho en `feat/18-usuarios`:
+   - membresía con estado propio (`ACTIVE`/`DISABLED`): un Admin deshabilita a alguien en su empresa sin tocar la cuenta global;
+   - invitaciones por email con token (solo el `sha256` en la DB, enlace con `#token=`), vencimiento `INVITATION_TTL_HOURS` (7 días), reenviar y revocar;
+   - aceptación sin sesión con funciones `SECURITY DEFINER`: crea la cuenta si no existe; si existe, basta el token. **No inicia sesión**;
+   - reglas: el rol Propietario solo lo maneja un Propietario, nadie se modifica a sí mismo, siempre queda un Propietario activo (con bloqueo para carreras);
+   - pantallas: `/panel/configuracion/usuarios` (tabla, filtros, búsqueda, menú por fila, invitaciones abiertas) y `/invitacion`;
+   - verificado de punta a punta contra la API real con Mailpit (invitar, recibir el correo, aceptar, ingresar, auditoría).
+
+   Contratos en [`API_CONTRACTS.md`](API_CONTRACTS.md#usuarios-e-invitaciones-apiv1members-apiv1invitations), seguridad en [`SECURITY.md`](SECURITY.md#invitaciones-18), límites en [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
+
+   Decisiones para revisar con el dueño:
+   - Repartidor y Comercio no se asignan en R1 (no tienen app ni permisos todavía).
+   - El email se manda dentro de la transacción: si el SMTP falla, `502` y no se guarda nada (sin outbox).
+   - Quien invita nunca ve el enlace; no hay "copiar enlace" para mandarlo por WhatsApp. Si hace falta, es una decisión de seguridad aparte.
+6. **Siguiente:** cerrar los pendientes de la web de R1 (vista de auditoría, cambio de contraseña, aviso antes de que venza la sesión) y revisar con el dueño el [`ROADMAP.md`](ROADMAP.md) para lo que queda de R1.
 
 ## Pendientes y avisos
+
+- **Base local de esta máquina:** el nombre de un índice de la migración `20261118200000_members_invitations` se corrigió después de aplicarla. En la base local se renombró el índice y se actualizó el checksum en `_prisma_migrations` (sin perder datos); `prisma migrate status` y `migrate diff` quedan limpios. Una base nueva no necesita nada.
+- **Seed:** "Eva (deshabilitada)" tiene la **cuenta** deshabilitada y la membresía activa: en Usuarios aparece como "Cuenta deshabilitada".
+- **Rol Soporte de plataforma** (SPEC §3): necesita su propio issue.
+- `.claude/worktrees` tiene worktrees viejos que se pueden borrar.
 
 - **Push de workflows:** el token de `gh` necesita el scope `workflow` para pushear `.github/workflows/ci.yml`. Se habilita con `gh auth refresh -h github.com -s workflow`, corrido en una terminal normal.
 - **CI en GitHub:** nunca corrió en GitHub Actions. Todo se verificó en local; los tests de integración usan Testcontainers y requieren Docker.

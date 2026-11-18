@@ -40,7 +40,8 @@ erDiagram
 |---------|--------------|-------|
 | `Tenant` | id, name, slug, timezone (`America/Asuncion`), currency (`PYG`), settings (SLA, auto-aceptar, evidencia requerida), status | |
 | `User` | id, email (único, normalizado), name, phone, status; credenciales en `UserCredential` (passwordHash, twoFactorSecret? a futuro) | Global, sin tenantId |
-| `Membership` | userId, tenantId, role (enum), courierId?, merchantId? | Une usuario ↔ tenant ↔ rol |
+| `Membership` | userId, tenantId, role (enum), status (`ACTIVE`/`DISABLED`), courierId?, merchantId? | Une usuario ↔ tenant ↔ rol. Solo las activas cuentan para la sesión |
+| `Invitation` | tenantId, email (normalizado), role, tokenHash (sha256), invitedBy?, expiresAt, acceptedAt?, acceptedUserId?, revokedAt? | Una abierta por `(tenantId, email)`; aceptada y revocada se excluyen (CHECK). Sin token en claro |
 | `Merchant` | tenantId, name, ruc?, phone?, status (`ACTIVE`/`SUSPENDED`/`ARCHIVED`), deletedAt? | `ARCHIVED` ⇔ `deletedAt` (CHECK). Nombre único (sin mayúsculas) entre vigentes |
 | `MerchantBranch` | tenantId, merchantId, name, address, neighborhood, city, references?, phone?, lat?, lng?, openingHours (JSON), deletedAt? | FK `(tenantId, merchantId)`. `lat`/`lng` aún no |
 | `Courier` | tenantId, userId?, name, phone, vehicleType, capacity, availability, status | |

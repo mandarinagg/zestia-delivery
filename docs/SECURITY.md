@@ -63,6 +63,16 @@ No hay CORS habilitado: el frontend se sirve desde el mismo origen que la API. E
 - Enlace: `${WEB_BASE_URL}/restablecer-contrasena#token=…`: el token va en el **fragmento**, que el navegador no envía al servidor ni en `Referer`.
 - `POST /auth/reset-password` cambia la contraseña, consume el token y revoca todas las sesiones. Token inválido, usado o vencido: `400 INVALID_OR_EXPIRED_TOKEN`.
 
+### Invitaciones (#18)
+
+- Mismo esquema que el reset: token de 32 bytes, se guarda solo el `sha256`, viaja en el fragmento (`${WEB_BASE_URL}/invitacion#token=…`) y la web lo saca de la barra apenas lo lee. Vence en `INVITATION_TTL_HOURS` (7 días); reenviar genera un token nuevo e invalida el anterior.
+- Quien invita **nunca ve el token ni el enlace**: no puede aceptar en nombre de otra persona.
+- Una sola invitación abierta por email y empresa (índice único parcial).
+- El email se manda dentro de la transacción: si el SMTP falla, la invitación no se guarda (`502`) y el log no lleva el destinatario.
+- Aceptar no inicia sesión: si la cuenta ya existía, la persona entra con su contraseña de siempre (el token no reemplaza a la contraseña); si no, se crea con nombre y contraseña.
+- `auth_invitation_peek` y `auth_invitation_accept` (`SECURITY DEFINER`) son el único camino para leer una invitación sin tenant y para crear usuarios. `accept` exige correr dentro de la transacción del tenant de la invitación (`app.tenant_id`) y nunca une una invitación a una cuenta de otro email.
+- Deshabilitar es por membresía: la persona deja de poder usar esa empresa desde su próxima request; la cuenta y sus otras empresas siguen igual.
+
 ### Funciones `SECURITY DEFINER`
 
 `users` tiene RLS forzada y las tablas de credenciales no tienen grants para `zestia_app`, así que todo el acceso pre-sesión pasa por funciones `auth_*` (migración `*_auth_sessions`):
