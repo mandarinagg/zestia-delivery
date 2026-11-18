@@ -38,7 +38,7 @@ Flujo acordado: commits locales en ramas `feat/…`. El dueño decide cuándo pu
 | #15 Multi-tenancy con RLS | ✅ Hecho |
 | #14 Autenticación y sesiones | ✅ Hecho, solo backend |
 | #20 Base de UI | ✅ Hecho: sistema + prototipos, sin conectar a la API |
-| #16 Roles fijos y guardas de permisos | ⏭ Siguiente |
+| #16 Roles fijos y guardas de permisos | ✅ Hecho en `feat/16-permisos` (matriz en `packages/auth`, `@RequirePermission()`) |
 | #17 Auditoría transversal | ⏭ Siguiente (ya existe `audit_logs` mínima y `AuditService.record()`) |
 | #19 CRUD de comercios y sucursales | ⏭ Después de #16 |
 | #18 Usuarios del tenant e invitaciones | Pendiente |
@@ -83,9 +83,7 @@ pnpm dev             # API :3000 · web :5173
 
 ## Próximos pasos sugeridos
 
-1. **#16 Permisos.**
-   - Armar la matriz rol → permiso en `packages/auth` y reemplazar la opción provisoria `roles` de `@TenantScoped()`.
-   - **Alinear los roles:** la DB tiene `OWNER, ADMIN, OPERATOR, SUPERVISOR, COURIER, MERCHANT`, mientras que `packages/auth` y el prototipo de login usan `admin, operator, merchant, courier`.
+1. ~~**#16 Permisos.**~~ Hecho en `feat/16-permisos`: matriz en `packages/auth` (detalle en [`SECURITY.md`](SECURITY.md#roles-y-permisos-issue-16)), `@RequirePermission()` obligatorio en cada ruta de tenant. Roles alineados con la DB (`OWNER, ADMIN, OPERATOR, SUPERVISOR, COURIER, MERCHANT`). Falta alinear el prototipo de login, que sigue con `admin, operator, merchant, courier`, cuando se conecte a la API (paso 3).
 2. **#17 Auditoría.**
    - Extender `AuditService` / `audit_logs` con before/after y un interceptor transversal.
    - Agregar una vista para Propietario/Admin.

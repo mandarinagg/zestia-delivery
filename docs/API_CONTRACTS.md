@@ -14,6 +14,7 @@
 ```
 
 - Header `X-Correlation-Id` aceptado y devuelto siempre.
+- Endpoints de tenant: `401` sin sesión; `403 NO_ACTIVE_MEMBERSHIP` / `TENANT_SELECTION_REQUIRED` si no hay tenant activo válido; `403 PERMISSION_DENIED` si el rol no tiene el permiso del endpoint (matriz en [`SECURITY.md`](SECURITY.md#roles-y-permisos-issue-16)).
 
 ## Autenticación (`/api/v1/auth`)
 

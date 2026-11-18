@@ -20,7 +20,7 @@
 ## Suites obligatorias (MVP)
 
 1. **Aislamiento de tenants:** helper que, para cada endpoint, crea datos en tenant A y verifica que tenant B recibe 404/403 (incluso manipulando ids). Además, tests de RLS a nivel DB (`modules/tenancy/rls.int.test.ts`) y de Prisma (`prisma-rls.int.test.ts`), y un test que exige `@TenantScoped()`/`@TenantExempt()` en cada ruta.
-2. **Permisos:** matriz rol × endpoint generada desde `packages/auth`.
+2. **Permisos:** la matriz rol → permiso se prueba en `packages/auth` contra una tabla escrita a mano. `app-routes.test.ts` exige `@RequirePermission()` en cada ruta de tenant y mantiene el inventario ruta → permiso. Cada endpoint prueba **todos** los roles de `ROLES` y espera 200 o `403 PERMISSION_DENIED` según `can()` (ejemplo: `merchants.int.test.ts`).
 3. **Máquina de estados:** todas las transiciones válidas pasan; todas las inválidas → 409 (test exhaustivo por tabla).
 4. **Idempotencia:** misma key ×10 → 1 pedido; key reutilizada con otro cuerpo → 422; concurrencia → 1 pedido.
 5. **Offline PWA:** cambios en cola se sincronizan en orden; conflicto por reasignación se informa.

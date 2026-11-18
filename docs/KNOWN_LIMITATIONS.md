@@ -26,8 +26,9 @@ Lista honesta de lo que el sistema **no** hace (o aún no). Se actualiza en cada
 - El email de reset se envía "fire and forget": si el SMTP falla se registra un error en el log (sin destinatario) pero la respuesta al usuario es la misma; no hay reintentos ni outbox de emails.
 - Auditoría mínima (`audit_logs`): solo eventos de autenticación, sin `before`/`after`, sin endpoint de consulta ni política de retención (#17).
 - Los errores de la API usan `{ statusCode, code }`, todavía no el formato RFC 9457 de `API_CONTRACTS.md`.
-- El único endpoint de negocio es `GET /api/v1/merchants/:id` (lectura mínima para probar el aislamiento). El CRUD de comercios es #19. El control por rol de ese endpoint (`@TenantScoped({ roles })`) es provisorio hasta la matriz de permisos de `packages/auth`.
+- El único endpoint de negocio es `GET /api/v1/merchants/:id` (lectura mínima para probar el aislamiento). El CRUD de comercios es #19.
 - `users` y `tenants` tienen RLS y la API solo puede leerlos: el alta de tenants (onboarding de plataforma) y el alta de usuarios necesitan su propio camino. El login por email usa funciones `SECURITY DEFINER` acotadas (#14).
 - Las tablas tienen `FORCE ROW LEVEL SECURITY`, que también aplica al dueño: una migración de **datos** sobre tablas de negocio debe fijar `app.tenant_id` por tenant (o correrla un rol de mantenimiento dedicado); las migraciones de esquema no se ven afectadas.
 - `pnpm test` en `apps/api` necesita Docker (Testcontainers) para los tests de integración; `pnpm --filter @zestia/api test:unit` corre solo los unitarios.
+- Permisos (#16): solo los de R1. Repartidor y Comercio no tienen ningún permiso hasta R2. Finanzas (R5) y Soporte de plataforma (acceso temporal de solo lectura, SPEC §3) no existen todavía como roles: Soporte necesita su propio issue.
 - Membresías sin `courierId`/`merchantId` todavía (llegan con repartidores y portal de comercio). El email de usuario se guarda normalizado (minúsculas, sin espacios; lo exige un `CHECK`), así que es único sin distinguir mayúsculas.

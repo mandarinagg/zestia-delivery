@@ -7,7 +7,7 @@ Referencia: **OWASP ASVS nivel 2** y OWASP Top 10. Para reportar vulnerabilidade
 | Amenaza | Control |
 |---------|---------|
 | Acceso cruzado entre tenants (IDOR) | Tenant resuelto en servidor + RLS + tests de aislamiento por endpoint |
-| Escalada de privilegios | Guards por permiso en cada endpoint; matriz rol→permiso testeada |
+| Escalada de privilegios | `@RequirePermission()` obligatorio en cada endpoint de tenant (falla cerrado); matriz rol→permiso en `packages/auth`, testeada (ver [Roles y permisos](#roles-y-permisos-issue-16)) |
 | Repartidor accede a pedidos ajenos | Filtro por `Assignment` activo + test |
 | Robo/abuso de API key | Hash en DB, prefijo visible, rotación, revocación, rate limit, `lastUsedAt` |
 | Webhook falsificado / replay | HMAC-SHA256 + timestamp ± 5 min + `eventId` deduplicado |
@@ -82,6 +82,41 @@ No hay CORS habilitado: el frontend debe servirse del mismo sitio (en desarrollo
 ### Logs
 
 La redacción de pino oculta `Authorization`, `Cookie`, `Set-Cookie`, `X-CSRF-Token`, contraseñas (`password`, `currentPassword`, `newPassword`), tokens (`token`, `sessionToken`, `csrfToken`), `email` y destinatarios de correo (`to`). Los errores de validación nunca devuelven el valor recibido.
+
+## Roles y permisos (issue #16)
+
+Roles **fijos** (SPEC §3) con una matriz rol → permiso en código: `packages/auth/src/index.ts` es la única fuente de verdad. Los roles salen de `membershipRoleSchema` (`packages/contracts`), y un test exige que coincidan con el enum `membership_role` de la DB.
+
+| Permiso | Propietario | Admin | Operador | Supervisor | Repartidor | Comercio |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|
+| `merchants:read` — ver comercios y sucursales | ✔ | ✔ | ✔ | ✔ | | |
+| `merchants:manage` — crear, editar y dar de baja | ✔ | ✔ | | | | |
+| `users:read` — ver usuarios y roles | ✔ | ✔ | | | | |
+| `users:manage` — invitar, cambiar rol, deshabilitar | ✔ | ✔ | | | | |
+| `users:manage-owners` — dar o quitar el rol Propietario | ✔ | | | | | |
+| `audit:read` — consultar la auditoría | ✔ | ✔ | | | | |
+
+- Solo están los permisos de R1. Cada módulo nuevo agrega los suyos, con su fila en la matriz y en el test de `packages/auth`.
+- Repartidor y Comercio todavía no tienen permisos. Llegan en R2, junto con su alcance por `courierId` / `merchantId`.
+- Supervisor = Operador por ahora; en R2 suma resolver incidencias.
+
+### Cómo se aplica en la API
+
+```ts
+@Controller('api/v1/merchants')
+@TenantScoped()
+export class MerchantsController {
+  @Get(':id')
+  @RequirePermission('merchants:read')
+  findOne() { … }
+}
+```
+
+- `TenantGuard` resuelve la membresía en el servidor y después verifica el permiso con `canAll(rol, permisos)`. Si se declaran varios permisos, hacen falta todos. El rol nunca se toma del cliente.
+- Sin permiso → `403 { statusCode: 403, code: "PERMISSION_DENIED" }`, sin datos del recurso.
+- **Falla cerrado:** una ruta `@TenantScoped()` sin `@RequirePermission()` responde 500 incluso al Propietario. Además, `app-routes.test.ts` exige el permiso en cada ruta de tenant y mantiene un inventario ruta → permiso que hay que actualizar a mano (queda visible en el PR).
+- `@RequirePermission()` rechaza permisos desconocidos al arrancar la app.
+- El frontend puede usar `can()` de `@zestia/auth` para mostrar u ocultar acciones. Es solo comodidad: la autorización la decide el servidor.
 
 ## Datos personales
 
