@@ -105,7 +105,16 @@ describe('rutas de la API', () => {
     expect(inventory).toEqual({
       'AuditLogsController.list': ['audit:read'],
       'AuditLogsController.findOne': ['audit:read'],
+      'MerchantsController.list': ['merchants:read'],
       'MerchantsController.findOne': ['merchants:read'],
+      'MerchantsController.create': ['merchants:manage'],
+      'MerchantsController.update': ['merchants:manage'],
+      'MerchantsController.suspend': ['merchants:manage'],
+      'MerchantsController.reactivate': ['merchants:manage'],
+      'MerchantsController.archive': ['merchants:manage'],
+      'MerchantsController.createBranch': ['merchants:manage'],
+      'MerchantsController.updateBranch': ['merchants:manage'],
+      'MerchantsController.archiveBranch': ['merchants:manage'],
     });
   });
 });

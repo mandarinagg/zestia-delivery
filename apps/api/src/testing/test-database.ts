@@ -126,6 +126,16 @@ export class TestSeeder {
     return id;
   }
 
+  async branch(tenantId: string, merchantId: string, name = 'Sucursal'): Promise<string> {
+    const id = randomUUID();
+    await this.admin.query(
+      `INSERT INTO merchant_branches (id, tenant_id, merchant_id, name, address, neighborhood, city)
+       VALUES ($1, $2, $3, $4, 'Calle 123', 'Centro', 'Asunción')`,
+      [id, tenantId, merchantId, name],
+    );
+    return id;
+  }
+
   /**
    * Fila de auditoría (como superusuario, sin pasar por la API). `occurredAt` permite probar
    * filtros por fecha; el id es UUID v7 generado por la DB, así que el orden es el de inserción.

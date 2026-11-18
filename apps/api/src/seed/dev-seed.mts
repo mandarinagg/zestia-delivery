@@ -105,6 +105,25 @@ export const SEED = {
     { id: '0193a000-0000-7000-8000-000000000301', tenant: 0, name: 'Farmacia Central (demo)' },
     { id: '0193a000-0000-7000-8000-000000000302', tenant: 1, name: 'Panadería del Sur (demo)' },
   ],
+  // Datos de ejemplo (direcciones ficticias), solo para desarrollo.
+  branches: [
+    {
+      id: '0193a000-0000-7000-8000-000000000401',
+      merchant: 0,
+      name: 'Casa central (demo)',
+      address: 'Calle de Ejemplo 100',
+      neighborhood: 'Centro',
+      city: 'Asunción',
+      openingHours: {
+        mon: [{ from: '08:00', to: '20:00' }],
+        tue: [{ from: '08:00', to: '20:00' }],
+        wed: [{ from: '08:00', to: '20:00' }],
+        thu: [{ from: '08:00', to: '20:00' }],
+        fri: [{ from: '08:00', to: '20:00' }],
+        sat: [{ from: '08:00', to: '13:00' }],
+      },
+    },
+  ],
 } as const;
 
 export async function seed(databaseUrl: string, password: string): Promise<void> {
@@ -144,8 +163,30 @@ export async function seed(databaseUrl: string, password: string): Promise<void>
     for (const m of SEED.merchants) {
       await client.query(
         `INSERT INTO merchants (id, tenant_id, name) VALUES ($1, $2, $3)
-         ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, deleted_at = NULL, updated_at = now()`,
+         ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, status = 'ACTIVE',
+           deleted_at = NULL, updated_at = now()`,
         [m.id, SEED.tenants[m.tenant]!.id, m.name],
+      );
+    }
+    for (const b of SEED.branches) {
+      const merchant = SEED.merchants[b.merchant]!;
+      await client.query(
+        `INSERT INTO merchant_branches
+           (id, tenant_id, merchant_id, name, address, neighborhood, city, opening_hours)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, address = EXCLUDED.address,
+           neighborhood = EXCLUDED.neighborhood, city = EXCLUDED.city,
+           opening_hours = EXCLUDED.opening_hours, deleted_at = NULL, updated_at = now()`,
+        [
+          b.id,
+          SEED.tenants[merchant.tenant]!.id,
+          merchant.id,
+          b.name,
+          b.address,
+          b.neighborhood,
+          b.city,
+          JSON.stringify(b.openingHours),
+        ],
       );
     }
     await client.query('COMMIT');
