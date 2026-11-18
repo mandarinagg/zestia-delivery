@@ -140,7 +140,7 @@ describe('RLS en Postgres (rol zestia_app)', () => {
          WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p')
          ORDER BY c.relname`,
       );
-      expect(rows.map((r) => r.relname)).toEqual(['memberships', 'merchants']);
+      expect(rows.map((r) => r.relname)).toEqual(['audit_logs', 'memberships', 'merchants']);
       for (const row of rows) {
         expect(row, row.relname).toMatchObject({ relrowsecurity: true, relforcerowsecurity: true });
         expect(row.policies, row.relname).toBeGreaterThan(0);

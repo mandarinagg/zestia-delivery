@@ -63,11 +63,14 @@ model Tenant {
 
   memberships Membership[]
   merchants   Merchant[]
+  sessions    Session[]
 
   @@map("tenants")
 }
 
-/// Usuario global (sin tenant_id). Credenciales y 2FA llegan con la autenticación (issue #14).
+/// Usuario global (sin tenant_id). El email se guarda normalizado (trim + minúsculas; CHECK en
+/// la migración `*_auth_sessions`). La credencial vive aparte (`UserCredential`), fuera del
+/// alcance del rol de la aplicación. 2FA: más adelante.
 model User {
   id        String     @id @default(uuid(7)) @db.Uuid
   email     String     @unique
@@ -76,7 +79,10 @@ model User {
   createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  memberships Membership[]
+  memberships         Membership[]
+  credential          UserCredential?
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
 
   @@map("users")
 }
@@ -117,4 +123,126 @@ model Merchant {
   // apuntar a un comercio de otro tenant.
   @@unique([tenantId, id])
   @@map("merchants")
+}
+
+// --- Autenticación (issue #14) -------------------------------------------------------------
+// Estas tablas NO tienen GRANT para `zestia_app`: la API solo las toca a través de funciones
+// SECURITY DEFINER acotadas (migración `*_auth_sessions`, docs/SECURITY.md "Autenticación").
+// Los ids los genera la DB (`app_uuid_v7()`), porque las filas las insertan esas funciones.
+
+enum AuthAttemptKind {
+  LOGIN
+  PASSWORD_RESET
+  CHANGE_PASSWORD
+
+  @@map("auth_attempt_kind")
+}
+
+enum SessionRevokeReason {
+  LOGOUT
+  ROTATED
+  PASSWORD_CHANGED
+  PASSWORD_RESET
+
+  @@map("session_revoke_reason")
+}
+
+/// Hash Argon2id (formato PHC) de la contraseña. Separado de `users` para que el rol de la
+/// aplicación, que puede leer `users` por RLS, nunca vea hashes.
+model UserCredential {
+  userId            String   @id @map("user_id") @db.Uuid
+  passwordHash      String   @map("password_hash")
+  passwordChangedAt DateTime @default(now()) @map("password_changed_at") @db.Timestamptz(3)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_credentials")
+}
+
+/// Sesión de servidor. Solo se guarda el SHA-256 del token opaco de la cookie.
+/// `activeTenantId` es una preferencia: el guard de tenancy la revalida contra una membresía.
+model Session {
+  id                 String               @id @default(dbgenerated("app_uuid_v7()")) @db.Uuid
+  userId             String               @map("user_id") @db.Uuid
+  tokenHash          Bytes                @unique @map("token_hash")
+  activeTenantId     String?              @map("active_tenant_id") @db.Uuid
+  idleTimeoutSeconds Int                  @map("idle_timeout_seconds")
+  createdAt          DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastSeenAt         DateTime             @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  idleExpiresAt      DateTime             @map("idle_expires_at") @db.Timestamptz(3)
+  absoluteExpiresAt  DateTime             @map("absolute_expires_at") @db.Timestamptz(3)
+  revokedAt          DateTime?            @map("revoked_at") @db.Timestamptz(3)
+  revokedReason      SessionRevokeReason? @map("revoked_reason")
+
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeTenant Tenant? @relation(fields: [activeTenantId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// Intentos de login / pedido de reset / cambio de contraseña, para el rate limit compartido
+/// entre instancias. Claves seudónimas: SHA-256 de la cuenta (email normalizado o id) y de la IP.
+model AuthAttempt {
+  id          String          @id @default(dbgenerated("app_uuid_v7()")) @db.Uuid
+  kind        AuthAttemptKind
+  accountKey  Bytes           @map("account_key")
+  ipKey       Bytes           @map("ip_key")
+  userId      String?         @map("user_id") @db.Uuid
+  succeeded   Boolean         @default(false)
+  lookedUpAt  DateTime?       @map("looked_up_at") @db.Timestamptz(3)
+  attemptedAt DateTime        @default(now()) @map("attempted_at") @db.Timestamptz(3)
+
+  @@index([kind, accountKey, attemptedAt])
+  @@index([kind, ipKey, attemptedAt])
+  @@index([attemptedAt])
+  @@map("auth_attempts")
+}
+
+/// Token de reset de contraseña: un solo uso, vida corta, solo se guarda su SHA-256.
+model PasswordResetToken {
+  id            String    @id @default(dbgenerated("app_uuid_v7()")) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  tokenHash     Bytes     @unique @map("token_hash")
+  expiresAt     DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt        DateTime? @map("used_at") @db.Timestamptz(3)
+  invalidatedAt DateTime? @map("invalidated_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// --- Auditoría (mínima en #14; interceptor, antes/después y vista de admin en #17) ----------
+
+enum AuditActorType {
+  USER
+  ANONYMOUS
+  SYSTEM
+
+  @@map("audit_actor_type")
+}
+
+/// Registro append-only. `tenantId` NULL = evento previo a elegir tenant (login, reset).
+/// Sin FK a propósito: la auditoría sobrevive a cambios en usuarios/tenants. Sin PII ni secretos
+/// en `metadata`. RLS: la API inserta (tenant del contexto o NULL fuera de él) y lee solo su tenant.
+model AuditLog {
+  id            String         @id @default(dbgenerated("app_uuid_v7()")) @db.Uuid
+  tenantId      String?        @map("tenant_id") @db.Uuid
+  actorType     AuditActorType @map("actor_type")
+  actorId       String?        @map("actor_id") @db.Uuid
+  action        String
+  entityType    String?        @map("entity_type")
+  entityId      String?        @map("entity_id")
+  metadata      Json           @default("{}")
+  correlationId String?        @map("correlation_id")
+  occurredAt    DateTime       @default(now()) @map("occurred_at") @db.Timestamptz(3)
+
+  @@index([tenantId, occurredAt])
+  @@index([occurredAt])
+  @@map("audit_logs")
 }
