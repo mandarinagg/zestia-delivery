@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { inject } from 'vitest';
+import { hashPassword } from '../modules/auth/password-hashing';
+import { hashToken } from '../modules/auth/tokens';
 
 /** URLs del Postgres de tests (ver global-setup.ts). */
 export interface TestDatabaseUrls {
@@ -51,14 +53,58 @@ export class TestSeeder {
     await this.admin.query(`UPDATE tenants SET status = 'SUSPENDED' WHERE id = $1`, [tenantId]);
   }
 
+  /** Email de los usuarios sembrados por `user()`. */
+  static emailOf(userId: string): string {
+    return `${userId}@test.invalid`;
+  }
+
   async user(name = 'User'): Promise<string> {
     const id = randomUUID();
     await this.admin.query('INSERT INTO users (id, email, name) VALUES ($1, $2, $3)', [
       id,
-      `${id}@test.invalid`,
+      TestSeeder.emailOf(id),
       name,
     ]);
     return id;
+  }
+
+  /** Usuario con contraseña (Argon2id real). Devuelve id y email. */
+  async userWithPassword(
+    password: string,
+    name = 'User',
+  ): Promise<{ userId: string; email: string }> {
+    const userId = await this.user(name);
+    await this.setPassword(userId, password);
+    return { userId, email: TestSeeder.emailOf(userId) };
+  }
+
+  async setPassword(userId: string, password: string): Promise<void> {
+    await this.admin.query(
+      `INSERT INTO user_credentials (user_id, password_hash) VALUES ($1, $2)
+       ON CONFLICT (user_id) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
+      [userId, await hashPassword(password)],
+    );
+  }
+
+  async setUserStatus(userId: string, status: 'ACTIVE' | 'DISABLED'): Promise<void> {
+    await this.admin.query('UPDATE users SET status = $2 WHERE id = $1', [userId, status]);
+  }
+
+  /** Simula una sesión cuya preferencia de tenant fue manipulada (sin pasar por la API). */
+  async forceSessionTenant(sessionToken: string, tenantId: string | null): Promise<void> {
+    const { rowCount } = await this.admin.query(
+      'UPDATE sessions SET active_tenant_id = $2 WHERE token_hash = $1',
+      [hashToken(sessionToken), tenantId],
+    );
+    if (rowCount !== 1) throw new Error('sesión no encontrada');
+  }
+
+  /** Consulta libre como superusuario (para verificar efectos en la DB). */
+  async query<R extends pg.QueryResultRow = Record<string, unknown>>(
+    sql: string,
+    params: unknown[] = [],
+  ): Promise<R[]> {
+    return (await this.admin.query<R>(sql, params)).rows;
   }
 
   async membership(tenantId: string, userId: string, role: MembershipRoleName): Promise<string> {

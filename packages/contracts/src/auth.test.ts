@@ -25,9 +25,9 @@ describe('contratos de autenticación', () => {
     expect(
       loginRequestSchema.safeParse({ email: 'a@b.co', password: 'x', tenantId: 'y' }).success,
     ).toBe(false);
-    expect(loginRequestSchema.safeParse({ email: 'a@b.co', password: 'x'.repeat(257) }).success).toBe(
-      false,
-    );
+    expect(
+      loginRequestSchema.safeParse({ email: 'a@b.co', password: 'x'.repeat(257) }).success,
+    ).toBe(false);
   });
 
   it('política de contraseña nueva: 12 a 128 caracteres, sin reglas de composición', () => {

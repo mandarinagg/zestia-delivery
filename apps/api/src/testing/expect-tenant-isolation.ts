@@ -1,7 +1,8 @@
 import type { INestApplication } from '@nestjs/common';
 import request, { type Response, type Test } from 'supertest';
 import { expect } from 'vitest';
-import type { MembershipRoleName, TestSeeder } from './test-database';
+import { login } from './auth-session';
+import { type MembershipRoleName, TestSeeder } from './test-database';
 import { TEST_PRINCIPAL_HEADER, principalHeader } from './test-principal.resolver';
 
 type Http = ReturnType<typeof request>;
@@ -21,7 +22,19 @@ export interface TenantIsolationOptions {
   readonly role?: MembershipRoleName;
   /** Status esperado cuando el dueño accede a su recurso (por defecto 200). */
   readonly ownerStatus?: number;
+  /**
+   * Cómo se autentican los usuarios:
+   *  - `test-principal` (por defecto): cabecera de test (app con `createTestApp()`);
+   *  - `session`: login REAL por `POST /api/v1/auth/login` y cookie de sesión (app con
+   *    `createTestApp({ auth: 'session' })`). La "sesión que apunta al tenant ajeno" se simula
+   *    manipulando la preferencia guardada en la DB (la API no permite fijarla sin membresía).
+   */
+  readonly auth?: 'test-principal' | 'session';
 }
+
+const ISOLATION_PASSWORD = 'isolation-test-password';
+
+type Attach = (test: Test) => Test;
 
 export interface TenantIsolationReport {
   readonly ownerTenantId: string;
@@ -56,8 +69,31 @@ export async function expectTenantIsolation(
   const intruderOwnId = await seed(intruder.tenantId);
 
   const http = request(app.getHttpServer());
-  const as = (userId: string, id: string, activeTenantId?: string): Test =>
-    options.request(http, id).set(TEST_PRINCIPAL_HEADER, principalHeader(userId, activeTenantId));
+  let asOwner: Attach;
+  let asIntruder: Attach;
+  let asIntruderPointingToOwner: Attach;
+  if ((options.auth ?? 'test-principal') === 'session') {
+    for (const user of [owner, intruder]) await seeder.setPassword(user.userId, ISOLATION_PASSWORD);
+    const ownerSession = await login(app, TestSeeder.emailOf(owner.userId), ISOLATION_PASSWORD);
+    const intruderSession = await login(
+      app,
+      TestSeeder.emailOf(intruder.userId),
+      ISOLATION_PASSWORD,
+    );
+    const tampered = await login(app, TestSeeder.emailOf(intruder.userId), ISOLATION_PASSWORD);
+    await seeder.forceSessionTenant(tampered.token, owner.tenantId);
+    asOwner = (t) => ownerSession.attach(t);
+    asIntruder = (t) => intruderSession.attach(t);
+    asIntruderPointingToOwner = (t) => tampered.attach(t);
+  } else {
+    const header =
+      (userId: string, activeTenantId?: string): Attach =>
+      (t) =>
+        t.set(TEST_PRINCIPAL_HEADER, principalHeader(userId, activeTenantId));
+    asOwner = header(owner.userId);
+    asIntruder = header(intruder.userId);
+    asIntruderPointingToOwner = header(intruder.userId, owner.tenantId);
+  }
 
   const statuses: Record<string, number> = {};
   const check = async (
@@ -75,23 +111,24 @@ export async function expectTenantIsolation(
     expect(res.text, `${label}: la respuesta no debe revelar el recurso`).not.toContain(victimId);
   };
 
-  await check('owner -> own resource', as(owner.userId, victimId), [ownerStatus]);
-  await check('intruder -> own resource', as(intruder.userId, intruderOwnId), [ownerStatus]);
+  const req = (id: string): Test => options.request(http, id);
+  await check('owner -> own resource', asOwner(req(victimId)), [ownerStatus]);
+  await check('intruder -> own resource', asIntruder(req(intruderOwnId)), [ownerStatus]);
 
-  await denied('intruder -> foreign id', as(intruder.userId, victimId));
+  await denied('intruder -> foreign id', asIntruder(req(victimId)));
   await denied(
     'intruder -> foreign id + spoofed tenant hints',
-    as(intruder.userId, victimId)
+    asIntruder(req(victimId))
       .set('x-tenant-id', owner.tenantId)
       .set('x-tenant', owner.tenantId)
       .query({ tenantId: owner.tenantId }),
   );
   await denied(
     'intruder session pointing to foreign tenant',
-    as(intruder.userId, victimId, owner.tenantId),
+    asIntruderPointingToOwner(req(victimId)),
     [403],
   );
-  await denied('unauthenticated', options.request(http, victimId), [401]);
+  await denied('unauthenticated', req(victimId), [401]);
 
   return {
     ownerTenantId: owner.tenantId,
