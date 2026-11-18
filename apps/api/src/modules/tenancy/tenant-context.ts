@@ -9,6 +9,8 @@ export interface TenantContext {
   readonly userId: string;
   readonly membershipId: string;
   readonly role: MembershipRole;
+  /** Id de la request (pino-http, `x-request-id`) para la auditoría. Sin validar: lo sanea `audit`. */
+  readonly correlationId?: string | null;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

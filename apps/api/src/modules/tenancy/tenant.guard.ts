@@ -50,7 +50,11 @@ export class TenantGuard implements CanActivate {
       throw new ForbiddenException({ statusCode: 403, code: 'PERMISSION_DENIED' });
     }
 
-    setRequestTenantContext(context.switchToHttp().getRequest<object>(), resolution.context);
+    const request = context.switchToHttp().getRequest<{ id?: unknown }>();
+    setRequestTenantContext(request, {
+      ...resolution.context,
+      correlationId: typeof request.id === 'string' ? request.id : null,
+    });
     return true;
   }
 }

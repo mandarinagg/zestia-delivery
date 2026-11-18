@@ -1,6 +1,6 @@
 /**
- * Evento de auditoría (tabla append-only `audit_logs`). Mínimo de #14; el issue #17 agrega el
- * interceptor transversal, los diffs antes/después y la vista de administración.
+ * Evento de auditoría (tabla append-only `audit_logs`). #14: eventos de autenticación; #17:
+ * cambios antes/después (`changes`, armados con `auditDiff()`) y consulta para Propietario/Admin.
  */
 
 /** `USER`: usuario autenticado. `ANONYMOUS`: sin sesión (p. ej. login fallido). */
@@ -14,6 +14,14 @@ export type AuditMetadataValue = string | number | boolean | null;
 /** Metadata plana, sin PII ni secretos (se valida en `assertSafeAuditEvent`). */
 export type AuditMetadata = Readonly<Record<string, AuditMetadataValue>>;
 
+/** Cambio de un campo: valores antes y después, o solo la marca si es un dato personal. */
+export type AuditFieldChange =
+  | { readonly from: AuditMetadataValue; readonly to: AuditMetadataValue }
+  | { readonly redacted: true };
+
+/** Solo los campos que cambiaron. Se arma con `auditDiff()`. */
+export type AuditChanges = Readonly<Record<string, AuditFieldChange>>;
+
 export interface AuditEvent {
   /** `<dominio>.<acción>[.<detalle>]` en minúsculas, p. ej. `auth.login.failed`. */
   readonly action: string;
@@ -21,6 +29,8 @@ export interface AuditEvent {
   /** Entidad afectada (tipo + id interno). Nunca un email u otro dato personal como id. */
   readonly entity?: { readonly type: string; readonly id: string } | null;
   readonly metadata?: AuditMetadata;
+  /** Antes/después por campo (`auditDiff()`). */
+  readonly changes?: AuditChanges | null;
   /** `correlationId` de la request (pino-http). */
   readonly correlationId?: string | null;
 }
@@ -34,6 +44,8 @@ const FORBIDDEN_KEY_RE =
   /pass|pwd|token|secret|cookie|csrf|hash|mail|phone|address|authorization|apikey|api_key/i;
 const MAX_METADATA_KEYS = 20;
 const MAX_STRING = 200;
+const MAX_CHANGED_FIELDS = 50;
+const MAX_CHANGE_STRING = 500;
 
 const CORRELATION_ID_RE = /^[A-Za-z0-9._:-]{1,128}$/;
 
@@ -77,14 +89,50 @@ export function assertSafeAuditEvent(event: AuditEvent): void {
     if (!METADATA_KEY_RE.test(key) || FORBIDDEN_KEY_RE.test(key)) {
       throw new UnsafeAuditEventError(`clave de metadata no permitida: ${key}`);
     }
-    if (typeof value === 'string' && (value.length > MAX_STRING || value.includes('@'))) {
-      throw new UnsafeAuditEventError(`valor de metadata no permitido en ${key}`);
+    assertSafeValue(value, MAX_STRING, `metadata.${key}`);
+  }
+  assertSafeChanges(event.changes);
+}
+
+function assertSafeValue(value: unknown, maxString: number, where: string): void {
+  if (value !== null && !['string', 'number', 'boolean'].includes(typeof value)) {
+    throw new UnsafeAuditEventError(`el valor debe ser plano (${where})`);
+  }
+  if (typeof value === 'string' && (value.length > maxString || value.includes('@'))) {
+    throw new UnsafeAuditEventError(`valor no permitido en ${where}`);
+  }
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    throw new UnsafeAuditEventError(`número inválido en ${where}`);
+  }
+}
+
+/**
+ * `changes`: campos con nombre válido; los que delatan datos personales o secretos (`phone`,
+ * `email`, `address`, `password`, …) SOLO pueden ir como `{ redacted: true }`.
+ */
+function assertSafeChanges(changes: AuditChanges | null | undefined): void {
+  if (changes == null) return;
+  if (typeof changes !== 'object' || Array.isArray(changes)) {
+    throw new UnsafeAuditEventError('changes debe ser un objeto');
+  }
+  const entries = Object.entries(changes);
+  if (entries.length > MAX_CHANGED_FIELDS) {
+    throw new UnsafeAuditEventError('demasiados campos en changes');
+  }
+  for (const [field, change] of entries) {
+    if (!METADATA_KEY_RE.test(field)) {
+      throw new UnsafeAuditEventError(`campo no permitido en changes: ${field}`);
     }
-    if (typeof value === 'number' && !Number.isFinite(value)) {
-      throw new UnsafeAuditEventError(`número inválido en ${key}`);
+    const keys = change && typeof change === 'object' ? Object.keys(change).sort().join(',') : '';
+    if (keys === 'redacted' && (change as { redacted: unknown }).redacted === true) continue;
+    if (keys !== 'from,to') {
+      throw new UnsafeAuditEventError(`cambio con formato inválido en ${field}`);
     }
-    if (value !== null && !['string', 'number', 'boolean'].includes(typeof value)) {
-      throw new UnsafeAuditEventError(`metadata debe ser plana (${key})`);
+    if (FORBIDDEN_KEY_RE.test(field)) {
+      throw new UnsafeAuditEventError(`${field} es un dato sensible: debe ir como redacted`);
     }
+    const { from, to } = change as { from: unknown; to: unknown };
+    assertSafeValue(from, MAX_CHANGE_STRING, `changes.${field}.from`);
+    assertSafeValue(to, MAX_CHANGE_STRING, `changes.${field}.to`);
   }
 }
