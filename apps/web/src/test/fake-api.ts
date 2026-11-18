@@ -1,4 +1,5 @@
 import type { AuthMembership, AuthSessionResponse } from '@zestia/contracts';
+import { FakeMerchants } from './fake-merchants';
 
 /**
  * SOLO TESTS. Servidor de autenticación en memoria detrás de `fetch`, con el mismo contrato que
@@ -83,6 +84,15 @@ export const COURIER: FakeUser = {
   memberships: [{ ...OWNER.memberships[0]!, role: 'COURIER' }],
 };
 
+/** Operador: puede ver comercios, no gestionarlos. */
+export const OPERATOR: FakeUser = {
+  id: '0192f0c4-0000-7000-8000-000000000005',
+  name: 'Olga Operadora',
+  email: 'olga@zestia.test',
+  password: 'contraseña-de-olga',
+  memberships: [{ ...OWNER.memberships[0]!, role: 'OPERATOR' }],
+};
+
 export const MERCHANT: FakeUser = {
   id: '0192f0c4-0000-7000-8000-000000000004',
   name: 'Mario Comercio',
@@ -105,9 +115,12 @@ class FakeApi {
   offline = false;
   /** El próximo login responde 429 con `Retry-After` en segundos. */
   loginRetryAfter: number | null = null;
+  /** Comercios y sucursales (`/merchants`), por empresa. */
+  readonly merchants = new FakeMerchants();
 
   reset(options: { as?: FakeUser | null } = {}): void {
-    this.users = [OWNER, MULTI, COURIER, MERCHANT];
+    this.users = [OWNER, MULTI, COURIER, MERCHANT, OPERATOR];
+    this.merchants.reset();
     this.requests = [];
     this.offline = false;
     this.loginRetryAfter = null;
@@ -166,8 +179,20 @@ class FakeApi {
         this.session = null;
         return new Response(null, { status: 204 });
       }
-      default:
-        return error(404, 'NOT_FOUND');
+      default: {
+        if (!this.session) return error(401, 'UNAUTHENTICATED');
+        const tenantId = this.session.activeTenantId;
+        const membership = this.user()?.memberships.find((m) => m.tenantId === tenantId);
+        if (!tenantId || !membership) return error(403, 'NO_ACTIVE_TENANT');
+        const reply = this.merchants.handle(method, path, url.searchParams, body, {
+          tenantId,
+          role: membership.role,
+        });
+        if (!reply) return error(404, 'NOT_FOUND');
+        return reply.body === undefined
+          ? new Response(null, { status: reply.status })
+          : json(reply.status, reply.body);
+      }
     }
   };
 

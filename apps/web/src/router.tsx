@@ -124,7 +124,6 @@ const sections = [
     'Alta, seguimiento y gestión de pedidos.',
     '/panel/prototipo/pedido/DEMO-1043',
   ],
-  ['comercios', 'Comercios', 'Comercios y sus sucursales.', null],
   ['repartidores', 'Repartidores', 'Flota, disponibilidad y asignaciones.', null],
   ['zonas', 'Zonas y tarifas', 'Zonas de cobertura y tarifas.', null],
   ['incidencias', 'Incidencias', 'Problemas en entregas y su resolución.', null],
@@ -141,6 +140,24 @@ const sectionRoutes = sections.map(([path, title, description, prototype]) =>
     ),
   }),
 );
+
+const merchantsRoute = createRoute({
+  getParentRoute: () => panelRoute,
+  path: 'comercios',
+  component: lazyRouteComponent(
+    () => import('@/features/merchants/merchants-page'),
+    'MerchantsPage',
+  ),
+});
+
+const merchantDetailRoute = createRoute({
+  getParentRoute: () => panelRoute,
+  path: 'comercios/$merchantId',
+  component: lazyRouteComponent(
+    () => import('@/features/merchants/merchant-detail-page'),
+    'MerchantDetailPage',
+  ),
+});
 
 const uiRoute = createRoute({
   getParentRoute: () => panelRoute,
@@ -203,7 +220,14 @@ const trackingRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
-  panelRoute.addChildren([...sectionRoutes, uiRoute, dispatchPrototypeRoute, orderPrototypeRoute]),
+  panelRoute.addChildren([
+    ...sectionRoutes,
+    merchantsRoute,
+    merchantDetailRoute,
+    uiRoute,
+    dispatchPrototypeRoute,
+    orderPrototypeRoute,
+  ]),
   comercioRoute,
   repartidorRoute,
   trackingRoute,
