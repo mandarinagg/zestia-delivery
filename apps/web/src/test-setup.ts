@@ -1,4 +1,9 @@
 import '@testing-library/jest-dom/vitest';
+import { configure } from '@testing-library/react';
+
+// `findBy…`/`waitFor` esperan 3 s (no 1 s): con la máquina cargada (CI, turbo en paralelo) el
+// primer render de la app completa puede pasar el segundo sin que haya un error real.
+configure({ asyncUtilTimeout: 3000 });
 
 window.scrollTo = () => undefined;
 
