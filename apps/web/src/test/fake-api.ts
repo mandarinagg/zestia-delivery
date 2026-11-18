@@ -1,4 +1,5 @@
 import type { AuthMembership, AuthSessionResponse } from '@zestia/contracts';
+import { FakeMembers } from './fake-members';
 import { FakeMerchants } from './fake-merchants';
 
 /**
@@ -117,10 +118,17 @@ class FakeApi {
   loginRetryAfter: number | null = null;
   /** Comercios y sucursales (`/merchants`), por empresa. */
   readonly merchants = new FakeMerchants();
+  /** Usuarios de la empresa e invitaciones (`/members`, `/invitations`, `/auth/invitations`). */
+  readonly members = new FakeMembers();
 
   reset(options: { as?: FakeUser | null } = {}): void {
-    this.users = [OWNER, MULTI, COURIER, MERCHANT, OPERATOR];
+    // Copias: aceptar una invitación suma membresías y no debe filtrarse a otros tests.
+    this.users = [OWNER, MULTI, COURIER, MERCHANT, OPERATOR].map((u) => ({
+      ...u,
+      memberships: [...u.memberships],
+    }));
     this.merchants.reset();
+    this.members.reset(this.users);
     this.requests = [];
     this.offline = false;
     this.loginRetryAfter = null;
@@ -142,7 +150,13 @@ class FakeApi {
     this.requests.push({ method, path: url.pathname, csrf: headers.get('x-csrf-token'), body });
 
     const path = url.pathname.replace(/^\/api\/v1/, '');
-    const csrfExempt = ['/auth/login', '/auth/forgot-password', '/auth/reset-password'];
+    const csrfExempt = [
+      '/auth/login',
+      '/auth/forgot-password',
+      '/auth/reset-password',
+      '/auth/invitations/preview',
+      '/auth/invitations/accept',
+    ];
     if (method !== 'GET' && this.session && !csrfExempt.includes(path)) {
       if (headers.get('x-csrf-token') !== CSRF) return error(403, 'CSRF_TOKEN_INVALID');
     }
@@ -180,21 +194,30 @@ class FakeApi {
         return new Response(null, { status: 204 });
       }
       default: {
+        if (method === 'POST') {
+          const open = this.members.handlePublic(path, body, (id) => this.tenantName(id));
+          if (open) return reply(open);
+        }
         if (!this.session) return error(401, 'UNAUTHENTICATED');
         const tenantId = this.session.activeTenantId;
         const membership = this.user()?.memberships.find((m) => m.tenantId === tenantId);
         if (!tenantId || !membership) return error(403, 'NO_ACTIVE_TENANT');
-        const reply = this.merchants.handle(method, path, url.searchParams, body, {
-          tenantId,
-          role: membership.role,
-        });
-        if (!reply) return error(404, 'NOT_FOUND');
-        return reply.body === undefined
-          ? new Response(null, { status: reply.status })
-          : json(reply.status, reply.body);
+        const who = { tenantId, role: membership.role, userId: this.session.userId };
+        const result =
+          this.merchants.handle(method, path, url.searchParams, body, who) ??
+          this.members.handle(method, path, url.searchParams, body, who);
+        return result ? reply(result) : error(404, 'NOT_FOUND');
       }
     }
   };
+
+  private tenantName(tenantId: string): string {
+    for (const u of this.users) {
+      const m = u.memberships.find((x) => x.tenantId === tenantId);
+      if (m) return m.tenantName;
+    }
+    return 'Empresa';
+  }
 
   private user(): FakeUser | undefined {
     return this.users.find((u) => u.id === this.session?.userId);
@@ -214,6 +237,10 @@ class FakeApi {
       csrfToken: CSRF,
     };
   }
+}
+
+function reply(r: { status: number; body?: unknown }): Response {
+  return r.body === undefined ? new Response(null, { status: r.status }) : json(r.status, r.body);
 }
 
 function json(status: number, body: unknown): Response {

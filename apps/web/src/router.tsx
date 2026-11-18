@@ -7,6 +7,7 @@ import {
   Outlet,
   redirect,
 } from '@tanstack/react-router';
+import { can } from '@zestia/auth';
 import { z } from 'zod';
 import { PanelLayout } from '@/components/layout/panel-layout';
 import { safeRedirect } from '@/features/auth/auth-api';
@@ -105,6 +106,16 @@ const resetRoute = createRoute({
   ),
 });
 
+/** Ruta fija: el enlace del email la arma el backend (`ACCEPT_INVITATION_PATH`, #18). */
+const invitationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/invitacion',
+  component: lazyRouteComponent(
+    () => import('@/features/members/accept-invitation-page'),
+    'AcceptInvitationPage',
+  ),
+});
+
 const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: HomePage });
 
 const panelRoute = createRoute({
@@ -128,7 +139,6 @@ const sections = [
   ['zonas', 'Zonas y tarifas', 'Zonas de cobertura y tarifas.', null],
   ['incidencias', 'Incidencias', 'Problemas en entregas y su resolución.', null],
   ['efectivo', 'Efectivo', 'Cobros y rendiciones de efectivo.', null],
-  ['configuracion', 'Configuración', 'Datos de la empresa, usuarios y roles.', null],
 ] as const;
 
 const sectionRoutes = sections.map(([path, title, description, prototype]) =>
@@ -157,6 +167,26 @@ const merchantDetailRoute = createRoute({
     () => import('@/features/merchants/merchant-detail-page'),
     'MerchantDetailPage',
   ),
+});
+
+/** Configuración: por ahora solo Usuarios (#18). Los datos de la empresa llegan después. */
+const settingsRoute = createRoute({
+  getParentRoute: () => panelRoute,
+  path: 'configuracion',
+  beforeLoad: ({ context, location }) => {
+    // Solo con `users:read` (la API lo exige igual); el resto vuelve al inicio del panel.
+    const membership = activeMembership(context.session);
+    if (!membership || !can(membership.role, 'users:read')) throw redirect({ to: '/panel/' });
+    if (location.pathname.replace(/\/$/, '') === '/panel/configuracion') {
+      throw redirect({ to: '/panel/configuracion/usuarios' });
+    }
+  },
+});
+
+const membersRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: 'usuarios',
+  component: lazyRouteComponent(() => import('@/features/members/members-page'), 'MembersPage'),
 });
 
 const uiRoute = createRoute({
@@ -224,6 +254,7 @@ const routeTree = rootRoute.addChildren([
     ...sectionRoutes,
     merchantsRoute,
     merchantDetailRoute,
+    settingsRoute.addChildren([membersRoute]),
     uiRoute,
     dispatchPrototypeRoute,
     orderPrototypeRoute,
@@ -237,6 +268,7 @@ const routeTree = rootRoute.addChildren([
   companyRoute,
   forgotRoute,
   resetRoute,
+  invitationRoute,
 ]);
 
 /** No reintenta errores del cliente (4xx): solo fallas de red o del servidor, una vez. */
