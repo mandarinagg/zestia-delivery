@@ -2,7 +2,7 @@
 
 Plataforma web SaaS multiempresa para gestionar empresas de delivery — pedidos, despacho, repartidores, efectivo, seguimiento e integraciones — pensada para Paraguay e integrable con ZESTIA.
 
-> **Estado:** 🟡 **R0 — Discovery.** Este repositorio contiene la especificación, el plan y el backlog. El código empieza en R1, una vez aprobadas las decisiones de arquitectura.
+> **Estado:** 🟡 **R1 — Fundaciones.** Decisiones de arquitectura aprobadas (ADR 001–012); arranca el código. El discovery de R0 (entrevistas, piloto, auditoría ZESTIA) sigue en paralelo.
 
 ## Por dónde empezar
 
@@ -29,9 +29,9 @@ Plataforma web SaaS multiempresa para gestionar empresas de delivery — pedidos
 - [Discovery](docs/DISCOVERY.md)
 - [Limitaciones conocidas](docs/KNOWN_LIMITATIONS.md)
 
-## Stack propuesto (pendiente de aprobación)
+## Stack
 
-pnpm + Turborepo · NestJS + TypeScript · PostgreSQL + Prisma + RLS · pg-boss · SSE · React + Vite + TanStack + shadcn/ui · PWA · Docker · GitHub Actions · Vitest + Playwright.
+pnpm + Turborepo · NestJS + TypeScript · PostgreSQL + Prisma + RLS · pg-boss · SSE · React + Vite + TanStack + shadcn/ui · PWA · Docker · GitHub Actions · Vitest + Playwright. Hosting pendiente (ADR-013).
 
 ## Roadmap
 
