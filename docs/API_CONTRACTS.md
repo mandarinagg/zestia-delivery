@@ -15,6 +15,44 @@
 
 - Header `X-Correlation-Id` aceptado y devuelto siempre.
 
+## Autenticación (`/api/v1/auth`)
+
+> Implementado (issue #14). Esquemas Zod en `packages/contracts/src/auth.ts`. Detalle de seguridad en [`SECURITY.md`](SECURITY.md#autenticación-y-sesiones-issue-14).
+
+Sesión por cookie (`__Host-zd_session`; `zd_session` en desarrollo por http). Toda request que cambia estado (`POST/PUT/PATCH/DELETE`, en cualquier endpoint de la API) necesita:
+
+- `Origin` (o `Referer`) dentro de `APP_ORIGINS` → si no, `403 CSRF_ORIGIN_REJECTED`;
+- `Content-Type: application/json` si lleva cuerpo → si no, `415 UNSUPPORTED_MEDIA_TYPE`;
+- `X-CSRF-Token: <csrfToken>` si lleva cookie de sesión (salvo `login`, `forgot-password`, `reset-password`) → si no, `403 CSRF_TOKEN_INVALID`.
+
+Todas las respuestas llevan `Cache-Control: no-store`. Errores de este módulo: `{ "statusCode": 401, "code": "INVALID_CREDENTIALS" }` (códigos en `authErrorCodeSchema`); los de validación: `400 { code: "VALIDATION_FAILED", issues: [{ path, message }] }`, sin devolver los valores enviados.
+
+| Método y ruta | Cuerpo | Respuesta OK | Errores |
+|---|---|---|---|
+| `POST /auth/login` | `{ email, password }` | `200` `AuthSession` + `Set-Cookie` (rota la sesión previa) | `401 INVALID_CREDENTIALS` (cualquier motivo), `429 TOO_MANY_ATTEMPTS` + `Retry-After` |
+| `POST /auth/logout` | — | `204`, borra la cookie (idempotente) | — |
+| `GET /auth/me` | — | `200` `AuthSession` | `401 UNAUTHENTICATED` |
+| `POST /auth/switch-tenant` | `{ tenantId }` | `200` `AuthSession` con el nuevo `activeTenantId` | `401`, `403 NO_ACTIVE_MEMBERSHIP` (sin membresía, membresía inactiva o tenant no `ACTIVE`) |
+| `POST /auth/change-password` | `{ currentPassword, newPassword }` | `200 { csrfToken }` + `Set-Cookie` nueva; revoca las demás sesiones | `400 INVALID_CURRENT_PASSWORD`, `401`, `429` |
+| `POST /auth/forgot-password` | `{ email }` | `202 { message }` (siempre el mismo) | `429` |
+| `POST /auth/reset-password` | `{ token, password }` | `204`; revoca todas las sesiones y borra la cookie | `400 INVALID_OR_EXPIRED_TOKEN` |
+
+`AuthSession`:
+
+```json
+{
+  "user": { "id": "…", "name": "Ana", "email": "ana@zestia.test" },
+  "memberships": [
+    { "tenantId": "…", "tenantName": "Delivery Demo Asunción", "tenantSlug": "demo-asuncion", "tenantStatus": "ACTIVE", "role": "OWNER" }
+  ],
+  "activeTenantId": null,
+  "csrfToken": "…"
+}
+```
+
+- `activeTenantId` es la preferencia guardada en la sesión (si el usuario tiene una sola membresía activa, el login la fija). Si deja de ser válida (membresía o tenant suspendidos), `me` devuelve `null` y los endpoints de tenant responden 403 hasta elegir otro.
+- Contraseña nueva: 12 a 128 caracteres. Email: se normaliza (`trim` + minúsculas). Token de reset: base64url de 43 caracteres; llega en el fragmento del enlace `…/restablecer-contrasena#token=…`.
+
 ## API genérica de ingreso (R2)
 
 Autenticación: `Authorization: Bearer zd_live_<prefix>_<secret>` (API key por integración/tenant).

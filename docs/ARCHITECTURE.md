@@ -104,7 +104,18 @@ La API **no arranca** si `DATABASE_URL` usa un rol superusuario, con `BYPASSRLS`
 
 **Jobs/workers:** `TenantDb.run(context, fn)` con un contexto construido por el servidor (p. ej. el `tenant_id` de la fila del outbox), nunca con datos del cliente. No se permiten transacciones de tenant anidadas.
 
-**Autenticación (#14):** debe registrar su implementación de `PrincipalResolver` en el token `PRINCIPAL_RESOLVER` (hoy `UnauthenticatedPrincipalResolver`: todo 401) y guardar `activeTenantId` en la sesión del servidor. Login por email, alta de usuarios y el selector de empresa necesitan su propio camino de datos: `users` tiene RLS (p. ej. una función `SECURITY DEFINER` acotada para buscar credenciales por email). La matriz rol → permisos de `packages/auth` reemplaza la opción `roles` de `@TenantScoped()`.
+**Lecturas/escrituras sin tenant:** `TenantDb.runUnscoped(fn)` abre una transacción sin `app.tenant_id` (falla si ya hay un contexto de tenant). Solo la usan `auth` (llamadas a las funciones `SECURITY DEFINER`) y `audit` (eventos sin tenant). Por RLS, ahí no se ve ninguna tabla de negocio.
+
+### Autenticación (issue #14)
+
+Módulo `apps/api/src/modules/auth` (global). Detalle de seguridad en [`SECURITY.md`](SECURITY.md#autenticación-y-sesiones-issue-14); endpoints en [`API_CONTRACTS.md`](API_CONTRACTS.md#autenticación-apiv1auth).
+
+- `SessionPrincipalResolver` está registrado en `PRINCIPAL_RESOLVER`: lee la cookie de sesión, la valida en la DB (hash del token, vencimientos) y devuelve `{ userId, activeTenantId }`. El `TenantGuard` de #15 **sigue** validando en cada request que exista una membresía activa en un tenant `ACTIVE`; `activeTenantId` es solo una preferencia. `TenancyModule` ya no provee un resolver por defecto (sin `AuthModule` la app no arranca); `UnauthenticatedPrincipalResolver` queda exportado para tests/herramientas.
+- Las tablas de credenciales y sesiones (`user_credentials`, `sessions`, `auth_attempts`, `password_reset_tokens`) **no tienen ningún GRANT** para `zestia_app`. La API solo las toca vía funciones `SECURITY DEFINER` (`auth_*`) del migrador, cada una exige una "llave" que la API no puede fabricar: el hash del token de sesión, un intento registrado por el rate limit para ese email, o el hash del token de reset.
+- `CsrfGuard` es global (`APP_GUARD`) y corre antes del `TenantGuard` en métodos que cambian estado.
+- `AuditService.record()` (módulo `audit`) escribe en `audit_logs` dentro de la transacción del tenant si hay una, o sin tenant (`tenant_id NULL`) si no.
+- Email: módulo `mail` con el puerto `MAIL_TRANSPORT` (SMTP con nodemailer; Mailpit en desarrollo; captura en memoria en tests).
+- La matriz rol → permisos (#16) reemplaza la opción `roles` de `@TenantScoped()`; `auth` no decide permisos.
 
 ## Tiempo real
 

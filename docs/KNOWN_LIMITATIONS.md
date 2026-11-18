@@ -17,10 +17,17 @@ Lista honesta de lo que el sistema **no** hace (o aún no). Se actualiza en cada
 
 ## Estado actual del repositorio
 
-- R1 en curso: monorepo (#13) y multi-tenancy con RLS (#15).
-- **Sin autenticación todavía (#14):** todo endpoint de tenant responde 401 fuera de los tests. El principal de los tests se inyecta con un resolver solo de pruebas.
+- R1 en curso: monorepo (#13), multi-tenancy con RLS (#15) y autenticación con sesiones de servidor (#14).
+- **Autenticación (#14), solo backend:** la UI de login, selector de empresa y reset es #20. Sin CORS: el frontend tiene que servirse del mismo sitio que la API (en desarrollo, proxy de Vite; todavía no configurado).
+- Sin 2FA (TOTP), sin verificación de email, sin alta/invitación de usuarios ni alta de tenants (onboarding): por ahora los usuarios solo se crean con `pnpm db:seed` (desarrollo).
+- Sin listado/cierre de "mis sesiones" ni revocación de sesiones por un admin. Las sesiones vencidas o revocadas quedan en `sessions` (no hay job de limpieza todavía; no afectan la seguridad).
+- Al deshabilitar un usuario (`status = DISABLED`) sus sesiones dejan de validar en la próxima request, pero no hay un endpoint de administración para hacerlo.
+- El rate limit de login no bloquea la cuenta (solo frena por ventana): no hay "bloqueo hasta que un admin la desbloquee" ni CAPTCHA. El límite por IP depende de configurar bien `TRUST_PROXY_HOPS` detrás de un proxy.
+- El email de reset se envía "fire and forget": si el SMTP falla se registra un error en el log (sin destinatario) pero la respuesta al usuario es la misma; no hay reintentos ni outbox de emails.
+- Auditoría mínima (`audit_logs`): solo eventos de autenticación, sin `before`/`after`, sin endpoint de consulta ni política de retención (#17).
+- Los errores de la API usan `{ statusCode, code }`, todavía no el formato RFC 9457 de `API_CONTRACTS.md`.
 - El único endpoint de negocio es `GET /api/v1/merchants/:id` (lectura mínima para probar el aislamiento). El CRUD de comercios es #19. El control por rol de ese endpoint (`@TenantScoped({ roles })`) es provisorio hasta la matriz de permisos de `packages/auth`.
-- `users` y `tenants` tienen RLS y la API solo puede leerlos: el alta de tenants (onboarding de plataforma), el alta de usuarios y el login por email necesitan su propio camino (#14).
+- `users` y `tenants` tienen RLS y la API solo puede leerlos: el alta de tenants (onboarding de plataforma) y el alta de usuarios necesitan su propio camino. El login por email usa funciones `SECURITY DEFINER` acotadas (#14).
 - Las tablas tienen `FORCE ROW LEVEL SECURITY`, que también aplica al dueño: una migración de **datos** sobre tablas de negocio debe fijar `app.tenant_id` por tenant (o correrla un rol de mantenimiento dedicado); las migraciones de esquema no se ven afectadas.
 - `pnpm test` en `apps/api` necesita Docker (Testcontainers) para los tests de integración; `pnpm --filter @zestia/api test:unit` corre solo los unitarios.
-- Membresías sin `courierId`/`merchantId` todavía (llegan con repartidores y portal de comercio). Email de usuario único sensible a mayúsculas (lo define #14).
+- Membresías sin `courierId`/`merchantId` todavía (llegan con repartidores y portal de comercio). El email de usuario se guarda normalizado (minúsculas, sin espacios; lo exige un `CHECK`), así que es único sin distinguir mayúsculas.

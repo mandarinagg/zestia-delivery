@@ -1,7 +1,8 @@
 # Modelo de datos
 
 > Estado: **Conceptual** — se convierte en esquema Prisma en R1/R2. Convenciones al final.
-> Implementado (issue #15, `apps/api/prisma/schema.prisma`): `Tenant`, `User` (sin credenciales aún), `Membership` (sin `courierId`/`merchantId` aún) y `Merchant` (mínimo, CRUD en #19), con RLS.
+> Implementado (issue #15, `apps/api/prisma/schema.prisma`): `Tenant`, `User`, `Membership` (sin `courierId`/`merchantId` aún) y `Merchant` (mínimo, CRUD en #19), con RLS.
+> Implementado (issue #14): `UserCredential` (hash Argon2id, separado de `users`), `Session` (solo `sha256` del token, vencimientos, `activeTenantId`, motivo de revocación), `AuthAttempt` (rate limit; cuenta e IP hasheadas), `PasswordResetToken` (hash, vencimiento, uso único) — sin ningún privilegio para `zestia_app`, solo accesibles vía funciones `SECURITY DEFINER` — y `AuditLog` mínimo (append-only, `tenantId` nulo para eventos sin tenant). Ver [`SECURITY.md`](SECURITY.md#autenticación-y-sesiones-issue-14).
 
 ```mermaid
 erDiagram
@@ -37,7 +38,7 @@ erDiagram
 | Entidad | Campos clave | Notas |
 |---------|--------------|-------|
 | `Tenant` | id, name, slug, timezone (`America/Asuncion`), currency (`PYG`), settings (SLA, auto-aceptar, evidencia requerida), status | |
-| `User` | id, email (único), name, phone, passwordHash, twoFactorSecret?, status | Global, sin tenantId |
+| `User` | id, email (único, normalizado), name, phone, status; credenciales en `UserCredential` (passwordHash, twoFactorSecret? a futuro) | Global, sin tenantId |
 | `Membership` | userId, tenantId, role (enum), courierId?, merchantId? | Une usuario ↔ tenant ↔ rol |
 | `Merchant` | tenantId, name, ruc?, phone, status (`ACTIVE`/`SUSPENDED`/`ARCHIVED`) | |
 | `MerchantBranch` | tenantId, merchantId, name, address, neighborhood, city, references, lat?, lng?, openingHours (JSON) | |
@@ -56,7 +57,7 @@ erDiagram
 | `IdempotencyRecord` | tenantId, integrationId, key, requestHash, responseSnapshot, expiresAt | Único `(integrationId, key)` |
 | `OutboxEvent` / `WebhookDelivery` | tenantId, type, payload, status / eventId, attempt, status, nextAttemptAt, lastError | |
 | `TrackingLink` | tenantId, orderId, tokenHash, expiresAt | |
-| `AuditLog` | tenantId, actorType, actorId, action, entity, entityId, before, after, ip, correlationId, at | Append-only |
+| `AuditLog` | tenantId?, actorType, actorId, action, entityType, entityId, metadata (sin PII), correlationId, occurredAt; a futuro (#17): before, after | Append-only (trigger); `tenantId` nulo = evento sin tenant |
 
 ## Convenciones
 

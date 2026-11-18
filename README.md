@@ -64,6 +64,7 @@ cp apps/web/.env.example apps/web/.env
 
 pnpm infra:up              # Postgres 17 + Mailpit (espera a que estén healthy)
 pnpm db:migrate            # aplica las migraciones (rol zestia_migrator)
+pnpm db:seed               # datos de ejemplo: 2 tenants y usuarios (solo desarrollo)
 pnpm dev                   # API en :3000 y web en :5173
 ```
 
@@ -84,6 +85,30 @@ Verificación rápida:
 
 Para apagar la infraestructura: `pnpm infra:down` (para borrar también el volumen de datos: `docker compose -f infra/docker/docker-compose.yml down -v`).
 
+### Usuarios de desarrollo (`pnpm db:seed`)
+
+El seed es idempotente y solo corre contra `localhost` (nunca con `NODE_ENV=production`). Todos los usuarios usan la contraseña de `SEED_USER_PASSWORD` en `apps/api/.env` (placeholder de desarrollo, no un secreto).
+
+| Email | Membresías |
+|-------|------------|
+| `ana@zestia.test` | Propietaria en *Demo Asunción* y Admin en *Demo Encarnación* (elige empresa con `switch-tenant`) |
+| `beto@zestia.test` | Operador en *Demo Asunción* |
+| `carla@zestia.test` | Propietaria en *Demo Encarnación* |
+| `dario@zestia.test` | Repartidor en *Demo Asunción* |
+| `eva@zestia.test` | Usuaria **deshabilitada** (el login falla) |
+
+Login de prueba con curl (la UI de login llega en #20). Las requests que cambian estado necesitan un `Origin` de `APP_ORIGINS` y, con sesión, el header `X-CSRF-Token`:
+
+```bash
+O='Origin: http://localhost:5173'; J='Content-Type: application/json'; API=http://localhost:3000/api/v1
+curl -c /tmp/zd.jar -H "$O" -H "$J" -d '{"email":"beto@zestia.test","password":"change_me_dev_only"}' $API/auth/login
+# → { user, memberships, activeTenantId, csrfToken }
+curl -b /tmp/zd.jar $API/auth/me
+curl -b /tmp/zd.jar $API/merchants/0193a000-0000-7000-8000-000000000301
+curl -b /tmp/zd.jar -H "$O" -H "$J" -H "X-CSRF-Token: <csrfToken>" -d '{"tenantId":"…"}' $API/auth/switch-tenant
+curl -H "$O" -H "$J" -d '{"email":"beto@zestia.test"}' $API/auth/forgot-password   # el email llega a Mailpit
+```
+
 ### Comandos
 
 | Comando                             | Qué hace                                      |
@@ -95,6 +120,7 @@ Para apagar la infraestructura: `pnpm infra:down` (para borrar también el volum
 | `pnpm test`                         | Vitest en todos los paquetes (la API incluye tests de integración con Testcontainers: **requiere Docker**) |
 | `pnpm db:migrate`                   | Aplica las migraciones pendientes (`prisma migrate deploy`) |
 | `pnpm db:migrate:dev`               | Crea una migración nueva desde `apps/api/prisma/schema.prisma` |
+| `pnpm db:seed`                      | Carga datos de ejemplo de desarrollo (tenants, usuarios, comercios) |
 | `pnpm format` / `pnpm format:check` | Prettier (escribe / solo verifica)            |
 
 
@@ -124,7 +150,7 @@ Se verifican con `eslint-plugin-boundaries` (`packages/config/eslint/boundaries.
 - Toda tabla accesible por la API tiene **RLS forzada**. Las políticas RLS se escriben en el SQL de la migración (Prisma no las modela): al crear una tabla de negocio, editá la migración con `--create-only` y agregá `ENABLE`/`FORCE ROW LEVEL SECURITY`, la política por `app_current_tenant_id()` y el `GRANT` a `zestia_app`. Un test falla si falta.
 - El acceso a datos de negocio pasa **solo** por `TenantDb` del módulo `tenancy` (`@TenantScoped()` en el controller). ESLint impide importar el cliente Prisma crudo fuera de `database/`, `health/` y `modules/tenancy/`. Detalle: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#multi-tenancy).
 - Cada endpoint nuevo usa el helper `expectTenantIsolation` (`apps/api/src/testing/`).
-- Autenticación real: issue #14. Mientras tanto todo endpoint de tenant responde 401.
+- Autenticación: sesión de servidor por cookie (`/api/v1/auth`, issue #14). Ver [`docs/SECURITY.md`](docs/SECURITY.md#autenticación-y-sesiones-issue-14) y [`docs/API_CONTRACTS.md`](docs/API_CONTRACTS.md#autenticación-apiv1auth).
 
 ## Licencia
 

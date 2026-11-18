@@ -13,7 +13,9 @@
 - Vitest con dos proyectos: `unit` (`*.test.ts`) e `integration` (`*.int.test.ts`). `pnpm test` corre ambos (también en CI).
 - Integración: `src/testing/global-setup.ts` levanta **un** Postgres 17 con Testcontainers por corrida, crea los roles con el mismo `infra/docker/postgres/initdb/01-roles.sh` de desarrollo y aplica las migraciones como `zestia_migrator`. La API y los tests de RLS se conectan como `zestia_app` (sin `BYPASSRLS`); el superusuario solo siembra datos (`TestSeeder`). Claves aleatorias por corrida.
 - Principal de prueba: `createTestApp()` reemplaza `PRINCIPAL_RESOLVER` por `TestPrincipalResolver` (cabecera `x-test-principal: <userId>[:<activeTenantId>]`). Vive en `src/testing/`, fuera del build.
-- Aislamiento por endpoint: `expectTenantIsolation({ app, seeder, seed, request })` (`src/testing/expect-tenant-isolation.ts`).
+- Autenticación real: `createTestApp({ auth: 'session' })` usa la sesión por cookie de verdad. `login(app, email, password)` (`src/testing/auth-session.ts`) devuelve la sesión y `session.attach(request)` agrega cookie, `Origin` y `X-CSRF-Token`. `TestSeeder.userWithPassword()` crea usuarios con contraseña. `app.mail` captura los emails en memoria (`waitFor(destinatario)`), sin SMTP.
+- Aislamiento por endpoint: `expectTenantIsolation({ app, seeder, seed, request })` (`src/testing/expect-tenant-isolation.ts`). Con `auth: 'session'` además inicia sesión de verdad y prueba una sesión con la preferencia de tenant manipulada en la DB.
+- Autenticación (`src/modules/auth/*.int.test.ts`): login/logout/cookies/vencimientos, CSRF, rate limit (dos instancias de la API contra la misma DB), cambio de tenant, reset y cambio de contraseña, auditoría sin PII, y abuso directo de las funciones `SECURITY DEFINER` como `zestia_app`. El seed de desarrollo también tiene test (`src/seed/dev-seed.int.test.ts`).
 
 ## Suites obligatorias (MVP)
 
