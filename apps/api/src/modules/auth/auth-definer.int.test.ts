@@ -1,4 +1,4 @@
-import { randomInt } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { TestSeeder, testDatabaseUrls } from '../../testing/test-database';
@@ -15,6 +15,8 @@ const AUTH_TABLES = ['user_credentials', 'sessions', 'auth_attempts', 'password_
 const DEFINER_FUNCTIONS = [
   'auth_attempt_register',
   'auth_change_password',
+  'auth_invitation_accept',
+  'auth_invitation_peek',
   'auth_login_complete',
   'auth_login_lookup',
   'auth_password_reset_complete',
@@ -330,6 +332,102 @@ describe('funciones SECURITY DEFINER de autenticación (rol zestia_app)', () => 
         [userId],
       );
       expect(row?.password_hash).not.toBe(hash);
+    });
+  });
+
+  describe('invitaciones (#18)', () => {
+    /** Corre `sql` como zestia_app con `app.tenant_id` fijado (o sin él) y hace ROLLBACK. */
+    async function inTenant<T>(
+      tenantId: string | null,
+      sql: string,
+      params: unknown[],
+    ): Promise<T[]> {
+      const client = await app.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(`SELECT set_config('app.tenant_id', $1, true)`, [tenantId ?? '']);
+        return (await client.query(sql, params)).rows as T[];
+      } finally {
+        await client.query('ROLLBACK');
+        client.release();
+      }
+    }
+
+    const ACCEPT = 'SELECT auth_invitation_accept($1, $2, $3, $4, $5, $6) AS outcome';
+
+    it('peek: un hash inventado o mal formado no devuelve nada', async () => {
+      for (const hash of [hashToken(generateToken()), Buffer.alloc(3), null]) {
+        const { rows } = await app.query('SELECT * FROM auth_invitation_peek($1)', [hash]);
+        expect(rows).toEqual([]);
+      }
+    });
+
+    it('aceptar exige estar en la transacción del tenant de la invitación', async () => {
+      const tenantId = await seeder.tenant();
+      const other = await seeder.tenant();
+      const { token } = await seeder.invitation(tenantId);
+      const args = [hashToken(token), tenantId, randomUUID(), randomUUID(), 'X', null];
+      expect(await errorCode(inTenant(null, ACCEPT, args))).toBe('42501');
+      expect(await errorCode(inTenant(other, ACCEPT, args))).toBe('42501');
+      const [row] = await inTenant<{ outcome: string }>(tenantId, ACCEPT, [
+        hashToken(generateToken()),
+        tenantId,
+        randomUUID(),
+        randomUUID(),
+        'X',
+        null,
+      ]);
+      expect(row?.outcome).toBe('INVALID');
+    });
+
+    it('con un token válido no se puede atar la membresía a OTRA cuenta', async () => {
+      const tenantId = await seeder.tenant();
+      const invited = await userWithHash();
+      const victim = await userWithHash();
+      const { token } = await seeder.invitation(tenantId, { email: invited.email });
+      const [row] = await inTenant<{ outcome: string }>(tenantId, ACCEPT, [
+        hashToken(token),
+        tenantId,
+        victim.userId,
+        randomUUID(),
+        null,
+        null,
+      ]);
+      expect(row?.outcome).toBe('STALE');
+
+      // Sin cuenta para el email: el id de una cuenta ajena choca con su clave primaria.
+      const fresh = await seeder.invitation(tenantId);
+      expect(
+        await errorCode(
+          inTenant(tenantId, ACCEPT, [
+            hashToken(fresh.token),
+            tenantId,
+            victim.userId,
+            randomUUID(),
+            'X',
+            victim.hash,
+          ]),
+        ),
+      ).toBe('23505');
+      const memberships = await seeder.query(
+        'SELECT id FROM memberships WHERE tenant_id = $1 AND user_id = $2',
+        [tenantId, victim.userId],
+      );
+      expect(memberships).toEqual([]);
+    });
+
+    it('zestia_app no crea cuentas ni credenciales por su cuenta, ni ve invitaciones sin tenant', async () => {
+      const tenantId = await seeder.tenant();
+      await seeder.invitation(tenantId);
+      expect(
+        await errorCode(
+          app.query(`INSERT INTO users (email, name) VALUES ('intruso@x.invalid', 'X')`),
+        ),
+      ).toBe('42501');
+      expect(
+        (await inTenant(null, 'SELECT id FROM invitations WHERE tenant_id = $1', [tenantId]))
+          .length,
+      ).toBe(0);
     });
   });
 });

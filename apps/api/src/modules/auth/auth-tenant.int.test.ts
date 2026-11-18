@@ -41,6 +41,24 @@ describe('sesión real + tenant activo (PrincipalResolver ↔ TenantGuard de #15
   const getMerchant = (session: LoggedInSession, id: string) =>
     session.attach(http().get(`/api/v1/merchants/${id}`));
 
+  it('una membresía deshabilitada (#18) no aparece en `me` ni se puede elegir', async () => {
+    const { userId, email } = await seeder.userWithPassword(PASSWORD);
+    const tenantA = await seeder.tenant('Empresa activa');
+    const tenantB = await seeder.tenant('Empresa donde lo deshabilitaron');
+    await seeder.membership(tenantA, userId, 'OPERATOR');
+    const disabled = await seeder.membership(tenantB, userId, 'ADMIN');
+    await seeder.setMembershipStatus(disabled, 'DISABLED');
+
+    // Con una sola membresía activa, el login la elige sola.
+    const session = await login(app, email, PASSWORD);
+    const me = await session.attach(http().get('/api/v1/auth/me')).expect(200);
+    expect(me.body.memberships.map((m: { tenantId: string }) => m.tenantId)).toEqual([tenantA]);
+    expect(me.body.activeTenantId).toBe(tenantA);
+
+    const res = await switchTo(session, tenantB).expect(403);
+    expect(res.body.code).toBe('NO_ACTIVE_MEMBERSHIP');
+  });
+
   it('aislamiento de tenant con sesiones reales (expectTenantIsolation)', async () => {
     const report = await expectTenantIsolation({
       app,

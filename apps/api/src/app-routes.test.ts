@@ -80,6 +80,15 @@ describe('rutas de la API', () => {
         permissions: null,
       });
     }
+    // Aceptar una invitación: todavía no hay membresía; autoriza el token del email.
+    for (const handler of ['preview', 'accept']) {
+      expect(routes).toContainEqual({
+        route: `InvitationAcceptanceController.${handler}`,
+        scoped: false,
+        exempt: true,
+        permissions: null,
+      });
+    }
   });
 
   it('cada ruta de tenant declara @RequirePermission() y las exentas no', async () => {
@@ -115,6 +124,15 @@ describe('rutas de la API', () => {
       'MerchantsController.createBranch': ['merchants:manage'],
       'MerchantsController.updateBranch': ['merchants:manage'],
       'MerchantsController.archiveBranch': ['merchants:manage'],
+      'MembersController.list': ['users:read'],
+      'MembersController.findOne': ['users:read'],
+      'MembersController.update': ['users:manage'],
+      'MembersController.disable': ['users:manage'],
+      'MembersController.enable': ['users:manage'],
+      'InvitationsController.list': ['users:read'],
+      'InvitationsController.create': ['users:manage'],
+      'InvitationsController.resend': ['users:manage'],
+      'InvitationsController.revoke': ['users:manage'],
     });
   });
 });

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { inject } from 'vitest';
 import { hashPassword } from '../modules/auth/password-hashing';
@@ -114,6 +114,39 @@ export class TestSeeder {
       [id, tenantId, userId, role],
     );
     return id;
+  }
+
+  async setMembershipStatus(membershipId: string, status: 'ACTIVE' | 'DISABLED'): Promise<void> {
+    await this.admin.query('UPDATE memberships SET status = $2 WHERE id = $1', [
+      membershipId,
+      status,
+    ]);
+  }
+
+  /**
+   * Invitación abierta (como superusuario). Devuelve su id y el token en claro (en la DB solo
+   * queda el SHA-256). `expiresInHours` negativo = vencida.
+   */
+  async invitation(
+    tenantId: string,
+    options: { email?: string; role?: MembershipRoleName; expiresInHours?: number } = {},
+  ): Promise<{ id: string; token: string; email: string }> {
+    const id = randomUUID();
+    const token = randomBytes(32).toString('base64url');
+    const email = options.email ?? `${id}@invitado.invalid`;
+    await this.admin.query(
+      `INSERT INTO invitations (id, tenant_id, email, role, token_hash, expires_at)
+       VALUES ($1, $2, $3, $4, $5, now() + make_interval(hours => $6))`,
+      [
+        id,
+        tenantId,
+        email,
+        options.role ?? 'OPERATOR',
+        hashToken(token),
+        options.expiresInHours ?? 24,
+      ],
+    );
+    return { id, token, email };
   }
 
   async merchant(tenantId: string, name = 'Comercio'): Promise<string> {

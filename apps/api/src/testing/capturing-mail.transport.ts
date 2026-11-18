@@ -5,8 +5,14 @@ import type { MailMessage, MailTransport } from '../modules/mail';
 @Injectable()
 export class CapturingMailTransport implements MailTransport {
   readonly sent: MailMessage[] = [];
+  /** El próximo envío falla (simula el SMTP caído). */
+  failNext = false;
 
   async send(message: MailMessage): Promise<void> {
+    if (this.failNext) {
+      this.failNext = false;
+      throw new Error('SMTP no disponible (simulado)');
+    }
     this.sent.push(message);
   }
 

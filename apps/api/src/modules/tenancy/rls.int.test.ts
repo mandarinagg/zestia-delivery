@@ -68,6 +68,7 @@ describe('RLS en Postgres (rol zestia_app)', () => {
     merchantA = await seeder.merchant(tenantA, 'Comercio A');
     merchantB = await seeder.merchant(tenantB, 'Comercio B');
     await seeder.branch(tenantA, merchantA);
+    await seeder.invitation(tenantA);
   });
 
   afterAll(async () => {
@@ -143,6 +144,7 @@ describe('RLS en Postgres (rol zestia_app)', () => {
       );
       expect(rows.map((r) => r.relname)).toEqual([
         'audit_logs',
+        'invitations',
         'memberships',
         'merchant_branches',
         'merchants',
@@ -168,10 +170,16 @@ describe('RLS en Postgres (rol zestia_app)', () => {
     it('las políticas de tablas de negocio usan app_current_tenant_id() en USING y WITH CHECK', async () => {
       const { rows } = await admin.query(
         `SELECT tablename, cmd, qual, with_check FROM pg_policies
-         WHERE schemaname = 'public' AND tablename IN ('merchants', 'merchant_branches')
+         WHERE schemaname = 'public'
+           AND tablename IN ('merchants', 'merchant_branches', 'invitations')
+           AND NOT 'zestia_migrator' = ANY (roles)
          ORDER BY tablename`,
       );
-      expect(rows.map((r) => r.tablename)).toEqual(['merchant_branches', 'merchants']);
+      expect(rows.map((r) => r.tablename)).toEqual([
+        'invitations',
+        'merchant_branches',
+        'merchants',
+      ]);
       for (const row of rows) {
         expect(row, row.tablename).toMatchObject({ cmd: 'ALL' });
         expect(row.qual, row.tablename).toContain('app_current_tenant_id()');
@@ -182,7 +190,14 @@ describe('RLS en Postgres (rol zestia_app)', () => {
 
   describe('sin contexto de tenant (fail-closed)', () => {
     it('cero filas en todas las tablas, sin error', async () => {
-      for (const table of ['merchants', 'merchant_branches', 'memberships', 'tenants', 'users']) {
+      for (const table of [
+        'merchants',
+        'merchant_branches',
+        'memberships',
+        'invitations',
+        'tenants',
+        'users',
+      ]) {
         const { rows } = await app.query(`SELECT count(*)::int AS n FROM ${table}`);
         expect(rows[0].n, table).toBe(0);
       }
