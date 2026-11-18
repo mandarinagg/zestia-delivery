@@ -1,4 +1,5 @@
-import { Link, Outlet } from '@tanstack/react-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { Link, Outlet, useNavigate } from '@tanstack/react-router';
 import {
   Check,
   ChevronsLeft,
@@ -12,6 +13,7 @@ import {
   Search,
 } from 'lucide-react';
 import { createContext, useContext, useState } from 'react';
+import { authApi } from '@/features/auth/auth-api';
 import { LogoMark, Wordmark } from '@/components/brand/logo';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Avatar } from '@/components/ui/avatar';
@@ -30,11 +32,20 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Kbd } from '@/components/ui/kbd';
 import { Hint } from '@/components/ui/popover';
+import { toast } from '@/components/ui/toast';
 import { useHotkeys } from '@/hooks/use-hotkeys';
+import {
+  ROLE_LABEL,
+  activeMembership,
+  homeFor,
+  selectableMemberships,
+  storeSession,
+  useSession,
+} from '@/lib/session';
 import { useTheme, type Density } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 import { CommandMenu } from './command-menu';
-import { PANEL_NAV_GROUPS } from './nav';
+import { type NavItem, navGroupsFor } from './nav';
 import { ShortcutsDialog } from './shortcuts-dialog';
 
 export { PANEL_NAV } from './nav';
@@ -75,7 +86,7 @@ function NavEntry({
 }: {
   to: string;
   label: string;
-  icon: (typeof PANEL_NAV_GROUPS)[number][number]['icon'];
+  icon: NavItem['icon'];
   collapsed: boolean;
   exact?: boolean;
   onNavigate?: () => void;
@@ -102,12 +113,13 @@ function NavEntry({
 }
 
 function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
+  const groups = navGroupsFor(activeMembership(useSession())?.role ?? null);
   return (
     <nav
       aria-label="Principal"
       className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-3 scrollbar-thin"
     >
-      {PANEL_NAV_GROUPS.map((group, gi) => (
+      {groups.map((group, gi) => (
         <div
           key={gi}
           className={cn(
@@ -163,57 +175,85 @@ function Brand({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-const DEMO_TENANTS = [
-  { id: 'envios-ejemplo', name: 'Envíos Ejemplo S.A.', role: 'Despachador/a' },
-  { id: 'mensajeria-demo', name: 'Mensajería Demo', role: 'Administrador/a' },
-];
+function initials(name: string): string {
+  return name.slice(0, 2).toUpperCase();
+}
 
-/** Selector de empresa. Placeholder visual: la membresía real llega con auth (#14). */
+/**
+ * Empresa activa y cambio de empresa (`POST /auth/switch-tenant`). Al cambiar se descartan los
+ * datos en caché de la empresa anterior y se va a la pantalla de inicio del nuevo rol.
+ */
 function TenantSwitcher() {
-  const [active, setActive] = useState(DEMO_TENANTS[0]!.id);
-  const tenant = DEMO_TENANTS.find((t) => t.id === active)!;
+  const session = useSession();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const active = activeMembership(session);
+  if (!session || !active) return null;
+  const options = selectableMemberships(session);
+
+  async function switchTo(tenantId: string) {
+    if (tenantId === active?.tenantId) return;
+    try {
+      const next = await authApi.switchTenant(tenantId);
+      queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== 'session' });
+      storeSession(queryClient, next);
+      const membership = activeMembership(next);
+      if (!membership) return;
+      toast({ tone: 'success', title: `Ahora estás en ${membership.tenantName}` });
+      await navigate({ href: homeFor(membership.role) });
+    } catch {
+      toast({
+        tone: 'danger',
+        title: 'No pudimos cambiar de empresa',
+        description: 'Puede que ya no tengas acceso. Recargá la página y probá de nuevo.',
+      });
+    }
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label={`Empresa activa: ${tenant.name}. Cambiar de empresa`}
+          aria-label={`Empresa activa: ${active.tenantName}. Cambiar de empresa`}
           className="flex h-10 min-w-0 max-w-64 pointer-coarse:h-11 items-center gap-2.5 rounded-md px-1.5 text-left hover:bg-accent"
         >
           <span
             aria-hidden="true"
             className="grid size-7 shrink-0 place-items-center rounded-sm bg-primary font-display text-xs font-bold text-primary-foreground"
           >
-            {tenant.name.slice(0, 2).toUpperCase()}
+            {initials(active.tenantName)}
           </span>
           <span className="hidden min-w-0 flex-col sm:flex">
-            <span className="truncate text-[0.8125rem] font-semibold leading-4">{tenant.name}</span>
-            <span className="truncate text-xs leading-4 text-muted-foreground">{tenant.role}</span>
+            <span className="truncate text-[0.8125rem] font-semibold leading-4">
+              {active.tenantName}
+            </span>
+            <span className="truncate text-xs leading-4 text-muted-foreground">
+              {ROLE_LABEL[active.role]}
+            </span>
           </span>
           <ChevronsUpDown aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-72">
-        <DropdownMenuLabel>Tus empresas (ejemplo)</DropdownMenuLabel>
-        {DEMO_TENANTS.map((t) => (
-          <DropdownMenuItem key={t.id} onSelect={() => setActive(t.id)}>
+        <DropdownMenuLabel>Tus empresas</DropdownMenuLabel>
+        {options.map((m) => (
+          <DropdownMenuItem key={m.tenantId} onSelect={() => void switchTo(m.tenantId)}>
             <span
               aria-hidden="true"
               className="grid size-6 place-items-center rounded-xs bg-muted font-display text-[0.6875rem] font-bold"
             >
-              {t.name.slice(0, 2).toUpperCase()}
+              {initials(m.tenantName)}
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate font-semibold">{t.name}</span>
-              <span className="text-xs text-muted-foreground">{t.role}</span>
+              <span className="truncate font-semibold">{m.tenantName}</span>
+              <span className="text-xs text-muted-foreground">{ROLE_LABEL[m.role]}</span>
             </span>
-            {t.id === active ? <Check aria-label="Activa" className="text-brand-ink" /> : null}
+            {m.tenantId === active.tenantId ? (
+              <Check aria-label="Activa" className="text-brand-ink" />
+            ) : null}
           </DropdownMenuItem>
         ))}
-        <DropdownMenuSeparator />
-        <p className="px-2 py-1.5 text-xs text-muted-foreground">
-          Las empresas reales aparecen al iniciar sesión.
-        </p>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -221,7 +261,23 @@ function TenantSwitcher() {
 
 function UserMenu({ onShortcuts }: { onShortcuts: () => void }) {
   const { density, setDensity } = useTheme();
-  const name = 'Usuario de ejemplo';
+  const session = useSession();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const role = activeMembership(session)?.role;
+  const name = session?.user.name ?? '';
+
+  async function logout() {
+    try {
+      await authApi.logout();
+    } catch {
+      /* La cookie se borra igual al vencer; localmente se olvida la sesión. */
+    }
+    queryClient.clear();
+    storeSession(queryClient, null);
+    await navigate({ to: '/ingreso' });
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -234,7 +290,10 @@ function UserMenu({ onShortcuts }: { onShortcuts: () => void }) {
           <Avatar name={name} size="md" />
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">{name}</p>
-            <p className="truncate text-xs text-muted-foreground">Despachador/a</p>
+            <p className="truncate text-xs text-muted-foreground">{session?.user.email}</p>
+            {role ? (
+              <p className="truncate text-xs text-muted-foreground">{ROLE_LABEL[role]}</p>
+            ) : null}
           </div>
         </div>
         <DropdownMenuSeparator />
@@ -249,9 +308,9 @@ function UserMenu({ onShortcuts }: { onShortcuts: () => void }) {
           <span className="flex-1">Atajos de teclado</span>
           <Kbd>?</Kbd>
         </DropdownMenuItem>
-        <DropdownMenuItem disabled>
+        <DropdownMenuItem onSelect={() => void logout()}>
           <LogOut aria-hidden="true" />
-          Cerrar sesión (llega con auth)
+          Cerrar sesión
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -409,7 +409,6 @@ export function UiShowcasePage() {
                 <Link
                   to={p.to}
                   params={'params' in p ? p.params : undefined}
-                  hash={'hash' in p ? p.hash : undefined}
                   className="flex h-full items-start gap-3 rounded-lg border bg-card p-3 hover:border-foreground/40"
                 >
                   <FlaskConical

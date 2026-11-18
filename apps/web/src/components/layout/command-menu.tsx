@@ -5,7 +5,8 @@ import type { ReactNode } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Kbd } from '@/components/ui/kbd';
 import { useTheme } from '@/lib/theme';
-import { PANEL_NAV, PROTOTYPES } from './nav';
+import { activeMembership, useSession } from '@/lib/session';
+import { PROTOTYPES, navGroupsFor } from './nav';
 
 const itemClass =
   'flex min-h-10 cursor-default select-none items-center gap-3 rounded-sm px-2.5 text-sm outline-none data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground';
@@ -43,6 +44,7 @@ export function CommandMenu({
 }) {
   const navigate = useNavigate();
   const { setPreference, resolved, density, setDensity } = useTheme();
+  const nav = navGroupsFor(activeMembership(useSession())?.role ?? null).flat();
 
   function run(fn: () => void) {
     onOpenChange(false);
@@ -71,7 +73,7 @@ export function CommandMenu({
               Nada coincide. Probá con otra palabra.
             </Command.Empty>
             <Command.Group heading="Ir a" className={groupClass}>
-              {PANEL_NAV.map(({ to, label, icon: Icon }) => (
+              {nav.map(({ to, label, icon: Icon }) => (
                 <Item key={to} onSelect={() => run(() => void navigate({ to }))}>
                   <Icon aria-hidden="true" />
                   {label}
