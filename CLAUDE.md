@@ -23,4 +23,6 @@ Actuá como arquitecto de software, product manager técnico y desarrollador sen
 
 ## Estado actual
 
-Release **R1 — Fundaciones** en curso (en paralelo con el cierre de R0: discovery, piloto, auditoría ZESTIA). ADR 001–012 aceptados; ADR-013 (hosting) pendiente.
+Release **R1 — Fundaciones** en curso (en paralelo con el cierre de R0: discovery, piloto, auditoría ZESTIA). ADR 001–012 aceptados; ADR-013 (hosting) pospuesto: desarrollo solo en local, producción en servidores propios más adelante.
+
+**Antes de empezar, leé [`docs/HANDOFF.md`](docs/HANDOFF.md)**: ramas, issues hechos, cómo levantarlo y próximos pasos.
