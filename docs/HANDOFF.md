@@ -1,18 +1,18 @@
 # Handoff — estado del trabajo
 
-> Última actualización: **2026-11-18** (tarde: #16, #17 y login web). Punto de partida para la próxima sesión (humana o de agentes).
+> Última actualización: **2026-11-18** (tarde: #16, #17, login web y #19). Punto de partida para la próxima sesión (humana o de agentes).
 > Leer junto con [`CLAUDE.md`](../CLAUDE.md), [`ROADMAP.md`](ROADMAP.md) y [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
 
 ## Resumen
 
 Release **R1 — Fundaciones** en curso. Ya están el monorepo, la multi-tenancy con RLS, la autenticación con sesiones de servidor y el sistema de diseño **"Riel"**, con prototipos navegables. Todo corre **en local** con Docker Compose. El pase a producción va a los **servidores propios** del dueño y se define más adelante; ADR-013 (hosting cloud) queda pospuesto.
 
-**Rama de trabajo recomendada:** `feat/r1-integracion`, que reúne todo lo de abajo. Verificada el 2026-11-18:
+**Rama más reciente:** `feat/19-comercios`, que incluye todo lo de abajo. Verificada el 2026-11-18:
 
-- `pnpm install --frozen-lockfile` sin errores.
-- `format:check`, `lint`, `typecheck` y `build` pasan.
-- `pnpm test` pasa con **274 tests**: api 154, web 111, contracts 6, domain 2, auth 1.
+- `lint`, `typecheck` y `build` pasan; Prettier pasa en los archivos cambiados.
+- `pnpm test` pasa con **467 tests**: api 219, web 149, contracts 52, auth 45, domain 2.
 - El contraste AA pasa: 150/150 pares.
+- Los tests de la web esperan hasta 3 s en `findBy…`/`waitFor` (`test-setup.ts`): con 1 s fallaban al azar con la máquina cargada.
 
 ## Ramas
 
@@ -27,7 +27,8 @@ Release **R1 — Fundaciones** en curso. Ya están el monorepo, la multi-tenancy
 | **`feat/r1-integracion`** | `feat/14` + `feat/20-ui-redesign` + este handoff | `feat/14` |
 | `feat/16-permisos` | Matriz rol → permiso, `@RequirePermission()` (#16) | `feat/r1-integracion` |
 | `feat/17-auditoria` | Auditoría con antes/después y consulta (#17) | `feat/16-permisos` |
-| **`feat/14-login-web`** | Login real en la web, sesión, guardas de ruta, cambio de empresa, logout. **Rama más reciente: incluye todo lo anterior** | `feat/17-auditoria` |
+| `feat/14-login-web` | Login real en la web, sesión, guardas de ruta, cambio de empresa, logout | `feat/17-auditoria` |
+| **`feat/19-comercios`** | Comercios y sucursales: API, auditoría y pantallas. **Rama más reciente: incluye todo lo anterior** | `feat/14-login-web` |
 
 Flujo acordado: commits locales en ramas `feat/…`. El dueño decide cuándo pushear y cuándo mergear a `main`.
 
@@ -43,7 +44,7 @@ Flujo acordado: commits locales en ramas `feat/…`. El dueño decide cuándo pu
 | #20 Base de UI | ✅ Hecho: sistema + prototipos, sin conectar a la API |
 | #16 Roles fijos y guardas de permisos | ✅ Hecho en `feat/16-permisos` (matriz en `packages/auth`, `@RequirePermission()`) |
 | #17 Auditoría transversal | ✅ Backend en `feat/17-auditoria` (`recordChange` + `auditDiff`, `GET /audit-logs`); la vista web va con la conexión del frontend |
-| #19 CRUD de comercios y sucursales | ⏭ Después de #16 |
+| #19 CRUD de comercios y sucursales | ✅ Hecho en `feat/19-comercios`: API con auditoría y pantallas `/panel/comercios` |
 | #18 Usuarios del tenant e invitaciones | Pendiente |
 
 ## Cómo levantarlo en local
@@ -93,7 +94,13 @@ pnpm dev             # API :3000 · web :5173
    - verificado de punta a punta contra la API real.
 
    Detalle en [`UI.md`](UI.md#sesión-en-la-web). Faltan la vista de auditoría y el cambio de contraseña en la web.
-4. **#19 Comercios y sucursales**, con `expectTenantIsolation` en cada endpoint.
+4. ~~**#19 Comercios y sucursales.**~~ Hecho en `feat/19-comercios`:
+   - API con estados (activo, suspendido, archivado), sucursales con horario y auditoría de cada cambio (datos de contacto ocultos);
+   - `expectTenantIsolation` en cada endpoint con id y matriz de permisos generada desde `@zestia/auth`;
+   - pantallas `/panel/comercios` (listado con búsqueda, filtros y "Cargar más") y detalle con edición, cambios de estado y sucursales;
+   - verificado de punta a punta contra la API real.
+
+   Límites en [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
 5. **#18 Usuarios e invitaciones**, que necesita el camino de alta de usuarios: hoy solo existe el seed.
 
 ## Pendientes y avisos

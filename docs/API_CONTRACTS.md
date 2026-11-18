@@ -78,6 +78,37 @@ Todas las respuestas llevan `Cache-Control: no-store`. Errores de este módulo: 
 }
 ```
 
+## Comercios y sucursales (`/api/v1/merchants`)
+
+> Implementado (issue #19). Esquemas Zod en `packages/contracts/src/merchants.ts`. Lectura: `merchants:read` (Propietario, Admin, Operador, Supervisor); cambios: `merchants:manage` (Propietario y Admin). Todo cambio queda en la auditoría, en la misma transacción.
+
+| Método y ruta | Cuerpo / parámetros | Respuesta OK | Errores |
+|---|---|---|---|
+| `GET /merchants` | `status?` (sin él: activos y suspendidos), `q?` (nombre contiene, o RUC empieza con), `cursor?`, `limit` (1–100, por defecto 50) | `200 { data: MerchantSummary[], nextCursor }`, por nombre | `400 VALIDATION_FAILED` / `INVALID_CURSOR` |
+| `POST /merchants` | `{ name, ruc?, phone? }` | `201 MerchantSummary` | `400`, `409 DUPLICATE_NAME` |
+| `GET /merchants/:id` | — | `200 MerchantDetail` (incluye archivados y sus sucursales vigentes) | `400` (no UUID), `404` |
+| `PATCH /merchants/:id` | parcial de `{ name, ruc, phone }`; `null` borra un opcional | `200 MerchantSummary` | `400`, `404`, `409 DUPLICATE_NAME` / `MERCHANT_ARCHIVED` |
+| `POST /merchants/:id/suspend` | — | `200` (`ACTIVE` → `SUSPENDED`) | `404`, `409 INVALID_STATUS_TRANSITION` |
+| `POST /merchants/:id/reactivate` | — | `200` (`SUSPENDED` → `ACTIVE`) | `404`, `409 INVALID_STATUS_TRANSITION` |
+| `POST /merchants/:id/archive` | — | `200` (→ `ARCHIVED`, final; fija `deletedAt`) | `404`, `409 INVALID_STATUS_TRANSITION` |
+| `POST /merchants/:id/branches` | `{ name, address, neighborhood, city, references?, phone?, openingHours? }` | `201 Branch` | `400`, `404`, `409 DUPLICATE_NAME` / `MERCHANT_ARCHIVED` |
+| `PATCH /merchants/:id/branches/:branchId` | parcial del alta | `200 Branch` | `400`, `404`, `409` |
+| `POST /merchants/:id/branches/:branchId/archive` | — | `204` | `404`, `409 MERCHANT_ARCHIVED` |
+
+- Inexistente, de otro tenant o (para sucursales) de otro comercio: siempre `404`.
+- Teléfonos: se aceptan en formato local de Paraguay (`0981 123 456`) o internacional y se guardan en E.164 (`+595981123456`). RUC: formato `80012345-6` (sin validar el dígito verificador).
+- Nombre único sin distinguir mayúsculas entre los comercios vigentes del tenant, y entre las sucursales vigentes de un comercio. Uno archivado libera el nombre.
+- `openingHours`: `{ mon?: [{ from: "08:00", to: "12:00" }, …], … }`, hasta 3 franjas por día, ordenadas y sin superponerse, en la hora local del tenant. Un día ausente = cerrado.
+- Auditoría: acciones `merchants.created`, `.updated`, `.suspended`, `.reactivated`, `.archived`, `.branch_created`, `.branch_updated`, `.branch_archived`. RUC, teléfonos, dirección y referencias se registran como `{ redacted: true }`.
+
+`MerchantSummary`:
+
+```json
+{ "id": "…", "name": "La Esquina", "ruc": "80012345-6", "phone": "+595981123456", "status": "ACTIVE", "branchCount": 2, "createdAt": "…", "updatedAt": "…" }
+```
+
+`MerchantDetail` = `MerchantSummary` + `branches: Branch[]`. `Branch`: `id, merchantId, name, address, neighborhood, city, references, phone, openingHours, createdAt, updatedAt`.
+
 ## API genérica de ingreso (R2)
 
 Autenticación: `Authorization: Bearer zd_live_<prefix>_<secret>` (API key por integración/tenant).

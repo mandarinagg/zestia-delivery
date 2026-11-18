@@ -29,12 +29,18 @@ Lista honesta de lo que el sistema **no** hace (o aún no). Se actualiza en cada
 - El rate limit de login no bloquea la cuenta (solo frena por ventana): no hay "bloqueo hasta que un admin la desbloquee" ni CAPTCHA. El límite por IP depende de configurar bien `TRUST_PROXY_HOPS` detrás de un proxy.
 - El email de reset se envía "fire and forget": si el SMTP falla se registra un error en el log (sin destinatario) pero la respuesta al usuario es la misma; no hay reintentos ni outbox de emails.
 - Auditoría (#17):
-  - `recordChange()` y `auditDiff()` están listos, pero todavía no hay acciones de negocio que los usen: los primeros son el CRUD de comercios (#19) y la gestión de usuarios (#18).
+  - La usan los comercios y sucursales (#19); falta la gestión de usuarios (#18).
   - Sin política de retención ni purga (depende de la consulta legal, #11). No se guarda la IP.
   - Los intentos denegados por permiso (403) no se auditan.
   - La vista web de la auditoría todavía no está (la API sí).
 - Los errores de la API usan `{ statusCode, code }`, todavía no el formato RFC 9457 de `API_CONTRACTS.md`.
-- El único endpoint de negocio es `GET /api/v1/merchants/:id` (lectura mínima para probar el aislamiento). El CRUD de comercios es #19.
+- Comercios y sucursales (#19):
+  - El RUC se valida solo por formato (`80012345-6`), no el dígito verificador.
+  - Las sucursales no tienen coordenadas (`lat`/`lng`): llegan con zonas y geocodificación. Nunca se inventan.
+  - Sin control de concurrencia optimista: si dos personas editan el mismo comercio a la vez, gana el último guardado (las transiciones de estado sí se serializan con `SELECT … FOR UPDATE`).
+  - Archivar es final: no hay "desarchivar". Archivar un comercio no archiva sus sucursales (dejan de poder editarse).
+  - La web edita hasta 3 franjas por día, igual que la API; no hay feriados ni excepciones por fecha.
+  - Los comercios suspendidos todavía no bloquean nada: el bloqueo de pedidos llega con los pedidos (R2).
 - `users` y `tenants` tienen RLS y la API solo puede leerlos: el alta de tenants (onboarding de plataforma) y el alta de usuarios necesitan su propio camino. El login por email usa funciones `SECURITY DEFINER` acotadas (#14).
 - Las tablas tienen `FORCE ROW LEVEL SECURITY`, que también aplica al dueño: una migración de **datos** sobre tablas de negocio debe fijar `app.tenant_id` por tenant (o correrla un rol de mantenimiento dedicado); las migraciones de esquema no se ven afectadas.
 - `pnpm test` en `apps/api` necesita Docker (Testcontainers) para los tests de integración; `pnpm --filter @zestia/api test:unit` corre solo los unitarios.
