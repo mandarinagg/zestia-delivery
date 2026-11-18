@@ -1,4 +1,11 @@
-import { formatDate, formatDateTime, formatPYG, formatTime } from './format';
+import {
+  formatDate,
+  formatDateTime,
+  formatMinutes,
+  formatPYG,
+  formatTime,
+  minutesBetween,
+} from './format';
 
 describe('formatPYG', () => {
   it.each([
@@ -37,5 +44,22 @@ describe('fechas en zona del tenant', () => {
 
   it('rechaza fechas inválidas', () => {
     expect(() => formatDate('no-es-fecha')).toThrow(RangeError);
+  });
+});
+
+describe('duraciones', () => {
+  it.each([
+    [0, '< 1 min'],
+    [7, '7 min'],
+    [59, '59 min'],
+    [65, '1 h 05'],
+    [130, '2 h 10'],
+  ])('%i -> %s', (m, expected) => {
+    expect(formatMinutes(m)).toBe(expected);
+  });
+
+  it('calcula minutos entre instantes y nunca negativos', () => {
+    expect(minutesBetween('2026-11-18T17:00:00Z', '2026-11-18T17:12:59Z')).toBe(12);
+    expect(minutesBetween('2026-11-18T17:10:00Z', '2026-11-18T17:00:00Z')).toBe(0);
   });
 });

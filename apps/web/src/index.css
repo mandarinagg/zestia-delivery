@@ -1,105 +1,171 @@
 @import 'tailwindcss';
-@import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark, .dark *));
 
 /*
- * Design tokens. Los pares texto/fondo están verificados WCAG AA
- * (ver docs/UI.md y `pnpm --filter @zestia/web contrast`).
+ * ZESTIA DELIVERY — sistema "Riel".
+ * Tinta (texto y barra lateral) + lapacho (marca, foco, lo nuevo) + tonos por fase del pedido.
+ * Todos los pares texto/fondo e indicador/superficie están verificados WCAG 2.2 AA con
+ * `pnpm --filter @zestia/web contrast` (falla si alguno baja del mínimo). Ver docs/UI.md.
+ * Solo colores #rrggbb en los bloques de tema: el script de contraste los lee de acá.
  */
 :root {
   color-scheme: light;
-  --radius: 0.5rem;
 
-  --background: #f4f6f8;
-  --foreground: #101820;
+  /* Superficies y texto */
+  --background: #eceef4;
+  --foreground: #14173a;
   --card: #ffffff;
-  --card-foreground: #101820;
-  --muted: #e9edf1;
-  --muted-foreground: #4a5663;
-  --accent: #e3f0f3;
-  --accent-foreground: #0a4a59;
-  --border: #d3dae1;
-  --input: #6f7c89;
-  --ring: #0b6b7f;
-  --primary: #0b6b7f;
+  --card-foreground: #14173a;
+  --raised: #ffffff;
+  --muted: #e2e5ee;
+  --muted-foreground: #4a4f70;
+  --subtle: #f5f6fa;
+  --accent: #e6e8f6;
+  --accent-foreground: #22265c;
+  --border: #d6d9e6;
+  --input: #767b9c;
+  --ring: #c0177a;
+
+  /* Acción */
+  --primary: #1d2152;
   --primary-foreground: #ffffff;
-  --destructive: #b42318;
+  --destructive: #b3261e;
   --destructive-foreground: #ffffff;
 
-  --sidebar: #ffffff;
-  --sidebar-foreground: #1c2833;
-  --sidebar-border: #d3dae1;
+  /* Marca: lapacho */
+  --brand: #c0177a;
+  --brand-foreground: #ffffff;
+  --brand-soft: #fce6f1;
+  --brand-ink: #a3125f;
 
-  --status-neutral-bg: #e9edf1;
-  --status-neutral-fg: #2f3a45;
-  --status-neutral-dot: #6b7886;
-  --status-info-bg: #deeefb;
-  --status-info-fg: #0b4a7a;
-  --status-info-dot: #1f78c1;
-  --status-success-bg: #daf1e3;
-  --status-success-fg: #0b5a33;
-  --status-success-dot: #1e8a52;
-  --status-warning-bg: #ffebc2;
-  --status-warning-fg: #6b4300;
-  --status-warning-dot: #a86400;
-  --status-danger-bg: #fbe0df;
-  --status-danger-fg: #8f1d1d;
-  --status-danger-dot: #c9302c;
+  /* Barra lateral (tinta en ambos temas) */
+  --sidebar: #14173a;
+  --sidebar-foreground: #e4e6f6;
+  --sidebar-muted: #a9adcf;
+  --sidebar-accent: #272b5f;
+  --sidebar-border: #2b2f63;
+  --sidebar-brand: #ff86c2;
+  --sidebar-ring: #ff86c2;
+
+  /* Tonos de estado: bg (fondo de etiqueta), fg (texto), solid (punto, riel, borde) */
+  --tone-slate-bg: #e4e6ef;
+  --tone-slate-fg: #343959;
+  --tone-slate-solid: #686e93;
+  --tone-blue-bg: #dce7ff;
+  --tone-blue-fg: #183c8c;
+  --tone-blue-solid: #2f62d3;
+  --tone-teal-bg: #d2f0ec;
+  --tone-teal-fg: #0b5751;
+  --tone-teal-solid: #11827a;
+  --tone-violet-bg: #ebe3ff;
+  --tone-violet-fg: #4a2a98;
+  --tone-violet-solid: #7247d6;
+  --tone-green-bg: #d6f1de;
+  --tone-green-fg: #10552b;
+  --tone-green-solid: #1d8443;
+  --tone-red-bg: #fde0dc;
+  --tone-red-fg: #8c1a11;
+  --tone-red-solid: #d1372a;
+  --tone-amber-bg: #ffecc4;
+  --tone-amber-fg: #6a4200;
+  --tone-amber-solid: #ae6800;
+  --tone-earth-bg: #f2e3d6;
+  --tone-earth-fg: #683816;
+  --tone-earth-solid: #97582b;
+
+  /* Elevación: solo para capas que flotan (menús, cajones, diálogos, avisos) */
+  --shadow-raised: 0 1px 2px rgb(20 23 58 / 0.08), 0 1px 1px rgb(20 23 58 / 0.04);
+  --shadow-overlay: 0 18px 40px -12px rgb(20 23 58 / 0.32), 0 4px 10px rgb(20 23 58 / 0.1);
+  --scrim: rgb(14 16 34 / 0.48);
 }
 
 .dark {
   color-scheme: dark;
-  --background: #0e1318;
-  --foreground: #e6ebf0;
-  --card: #151c23;
-  --card-foreground: #e6ebf0;
-  --muted: #1e2730;
-  --muted-foreground: #a3afbb;
-  --accent: #17323a;
-  --accent-foreground: #b6e4ee;
-  --border: #2b3641;
-  --input: #7d8a97;
-  --ring: #4fb8cc;
-  --primary: #4fb8cc;
-  --primary-foreground: #08242b;
-  --destructive: #f0605a;
-  --destructive-foreground: #1a0605;
 
-  --sidebar: #11171d;
-  --sidebar-foreground: #d5dce3;
-  --sidebar-border: #2b3641;
+  --background: #0e1022;
+  --foreground: #e7e8f4;
+  --card: #161935;
+  --card-foreground: #e7e8f4;
+  --raised: #1d2140;
+  --muted: #22264a;
+  --muted-foreground: #a6aac8;
+  --subtle: #1a1d3b;
+  --accent: #282c52;
+  --accent-foreground: #dcdefb;
+  --border: #2c3054;
+  --input: #8085a9;
+  --ring: #ff86c2;
 
-  --status-neutral-bg: #26303a;
-  --status-neutral-fg: #d5dce3;
-  --status-neutral-dot: #94a1ae;
-  --status-info-bg: #12304a;
-  --status-info-fg: #a9d4f5;
-  --status-info-dot: #5aaeea;
-  --status-success-bg: #11382a;
-  --status-success-fg: #9be0bc;
-  --status-success-dot: #4cc48a;
-  --status-warning-bg: #44300a;
-  --status-warning-fg: #f5d48a;
-  --status-warning-dot: #e8a92c;
-  --status-danger-bg: #4a1b1b;
-  --status-danger-fg: #f5b1ae;
-  --status-danger-dot: #f0605a;
+  --primary: #d9dbff;
+  --primary-foreground: #14173a;
+  --destructive: #ff8b80;
+  --destructive-foreground: #2a0705;
+
+  --brand: #ff86c2;
+  --brand-foreground: #2a0418;
+  --brand-soft: #3a1631;
+  --brand-ink: #ffa2d1;
+
+  --sidebar: #090b19;
+  --sidebar-foreground: #e4e6f6;
+  --sidebar-muted: #a1a5c6;
+  --sidebar-accent: #1f2347;
+  --sidebar-border: #1f2242;
+  --sidebar-brand: #ff86c2;
+  --sidebar-ring: #ff86c2;
+
+  --tone-slate-bg: #272b4b;
+  --tone-slate-fg: #d6d8ee;
+  --tone-slate-solid: #9599bd;
+  --tone-blue-bg: #172d5c;
+  --tone-blue-fg: #b7cdff;
+  --tone-blue-solid: #6f9bff;
+  --tone-teal-bg: #0f3a3b;
+  --tone-teal-fg: #9fe5dc;
+  --tone-teal-solid: #3cc0b1;
+  --tone-violet-bg: #2f2160;
+  --tone-violet-fg: #d4c4ff;
+  --tone-violet-solid: #a283ff;
+  --tone-green-bg: #12382a;
+  --tone-green-fg: #a4e6bb;
+  --tone-green-solid: #4cc37a;
+  --tone-red-bg: #4a1a20;
+  --tone-red-fg: #ffb9b1;
+  --tone-red-solid: #ff6f61;
+  --tone-amber-bg: #42300b;
+  --tone-amber-fg: #fbd68a;
+  --tone-amber-solid: #f0a92c;
+  --tone-earth-bg: #3d2a1d;
+  --tone-earth-fg: #f0c9a6;
+  --tone-earth-solid: #d39461;
+
+  --shadow-raised: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-overlay: 0 20px 44px -12px rgb(0 0 0 / 0.7), 0 4px 12px rgb(0 0 0 / 0.4);
+  --scrim: rgb(4 5 14 / 0.66);
+}
+
+/* Densidad: el despachador elige; afecta filas de tabla y tarjetas del tablero. */
+:root {
+  --row-h: 2.5rem;
+  --card-pad: 0.75rem;
+  --card-gap: 0.5rem;
+}
+:root[data-density='compact'] {
+  --row-h: 2rem;
+  --card-pad: 0.5rem;
+  --card-gap: 0.375rem;
 }
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --font-sans:
-    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-    sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-raised: var(--raised);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-subtle: var(--subtle);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-border: var(--border);
@@ -109,37 +175,304 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-accent: var(--sidebar-accent);
   --color-sidebar-border: var(--sidebar-border);
-  --color-status-neutral-bg: var(--status-neutral-bg);
-  --color-status-neutral-fg: var(--status-neutral-fg);
-  --color-status-neutral-dot: var(--status-neutral-dot);
-  --color-status-info-bg: var(--status-info-bg);
-  --color-status-info-fg: var(--status-info-fg);
-  --color-status-info-dot: var(--status-info-dot);
-  --color-status-success-bg: var(--status-success-bg);
-  --color-status-success-fg: var(--status-success-fg);
-  --color-status-success-dot: var(--status-success-dot);
-  --color-status-warning-bg: var(--status-warning-bg);
-  --color-status-warning-fg: var(--status-warning-fg);
-  --color-status-warning-dot: var(--status-warning-dot);
-  --color-status-danger-bg: var(--status-danger-bg);
-  --color-status-danger-fg: var(--status-danger-fg);
-  --color-status-danger-dot: var(--status-danger-dot);
+  --color-sidebar-brand: var(--sidebar-brand);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-tone-slate-bg: var(--tone-slate-bg);
+  --color-tone-slate-fg: var(--tone-slate-fg);
+  --color-tone-slate-solid: var(--tone-slate-solid);
+  --color-tone-blue-bg: var(--tone-blue-bg);
+  --color-tone-blue-fg: var(--tone-blue-fg);
+  --color-tone-blue-solid: var(--tone-blue-solid);
+  --color-tone-teal-bg: var(--tone-teal-bg);
+  --color-tone-teal-fg: var(--tone-teal-fg);
+  --color-tone-teal-solid: var(--tone-teal-solid);
+  --color-tone-violet-bg: var(--tone-violet-bg);
+  --color-tone-violet-fg: var(--tone-violet-fg);
+  --color-tone-violet-solid: var(--tone-violet-solid);
+  --color-tone-green-bg: var(--tone-green-bg);
+  --color-tone-green-fg: var(--tone-green-fg);
+  --color-tone-green-solid: var(--tone-green-solid);
+  --color-tone-red-bg: var(--tone-red-bg);
+  --color-tone-red-fg: var(--tone-red-fg);
+  --color-tone-red-solid: var(--tone-red-solid);
+  --color-tone-amber-bg: var(--tone-amber-bg);
+  --color-tone-amber-fg: var(--tone-amber-fg);
+  --color-tone-amber-solid: var(--tone-amber-solid);
+  --color-tone-earth-bg: var(--tone-earth-bg);
+  --color-tone-earth-fg: var(--tone-earth-fg);
+  --color-tone-earth-solid: var(--tone-earth-solid);
+
+  --shadow-raised: var(--shadow-raised);
+  --shadow-overlay: var(--shadow-overlay);
+}
+
+@theme {
+  /* Tipografía: Atkinson Hyperlegible Next (lectura) + Barlow Semi Condensed (señalética, cifras). */
+  --font-sans:
+    'Atkinson Hyperlegible Next Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    Roboto, Arial, sans-serif;
+  --font-display:
+    'Barlow Semi Condensed', 'Arial Narrow', ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* Escala tipográfica (panel). La PWA del repartidor sube un escalón. */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+
+  /* Radios con jerarquía: etiquetas < controles < paneles < capas */
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 7px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+
+  /* Movimiento */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.5, 0, 0.75, 0);
+  --ease-standard: cubic-bezier(0.3, 0, 0.2, 1);
+  --ease-move: cubic-bezier(0.25, 0.9, 0.3, 1.04);
+
+  --animate-arrive: arrive 360ms var(--ease-out) both;
+  --animate-fade-in: fade-in 180ms var(--ease-standard) both;
+  --animate-breathe: breathe 2.8s ease-in-out infinite;
+}
+
+/* Duraciones (fuera de @theme para usarlas en var() libremente) */
+:root {
+  --dur-instant: 90ms;
+  --dur-fast: 140ms;
+  --dur-base: 220ms;
+  --dur-slow: 320ms;
+  --dur-move: 420ms;
+  --dur-trace: 4s;
 }
 
 @layer base {
   * {
     @apply border-border;
   }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
   body {
-    @apply bg-background text-foreground font-sans text-sm antialiased;
+    @apply bg-background font-sans text-sm text-foreground antialiased;
+    font-feature-settings: 'tnum' 0;
   }
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
+  ::selection {
+    background: var(--brand-soft);
+    color: var(--foreground);
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+}
+
+@utility font-numeric {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* ---------- Movimiento ---------- */
+
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 45%, transparent);
+  }
+  60% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, currentColor 0%, transparent);
+  }
+}
+
+/* Rastro de llegada: el borde lapacho se apaga en 4 s. Dice "esto es nuevo" sin parpadear. */
+@keyframes trace {
+  from {
+    box-shadow:
+      inset 3px 0 0 var(--brand),
+      0 0 0 1px var(--brand);
+  }
+  to {
+    box-shadow:
+      inset 3px 0 0 transparent,
+      0 0 0 1px transparent;
+  }
+}
+.animate-trace {
+  animation:
+    arrive var(--dur-slow) var(--ease-out) both,
+    trace var(--dur-trace) var(--ease-standard) both;
+}
+
+/* Cambio de valor (estado, monto): un destello breve de fondo, no un salto. */
+@keyframes settle {
+  from {
+    background-color: var(--brand-soft);
+  }
+}
+.animate-settle {
+  animation: settle 1.2s var(--ease-standard) both;
+}
+
+/* Capas (Radix expone data-state open/closed y espera la animación de salida) */
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes overlay-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes sheet-in-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes sheet-out-right {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes sheet-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+}
+@keyframes sheet-out-left {
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes sheet-in-bottom {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes sheet-out-bottom {
+  to {
+    transform: translateY(100%);
+  }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.97);
+  }
+}
+@keyframes pop-out {
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+/* En el celular los avisos bajan desde arriba (abajo está la zona del pulgar); en escritorio suben. */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--toast-from, 12px)) scale(0.98);
+  }
+}
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}
+@keyframes banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+}
+
+.zd-overlay[data-state='open'] {
+  animation: overlay-in var(--dur-base) var(--ease-standard);
+}
+.zd-overlay[data-state='closed'] {
+  animation: overlay-out var(--dur-fast) var(--ease-in);
+}
+.zd-sheet-right[data-state='open'] {
+  animation: sheet-in-right var(--dur-slow) var(--ease-out);
+}
+.zd-sheet-right[data-state='closed'] {
+  animation: sheet-out-right var(--dur-base) var(--ease-in);
+}
+.zd-sheet-left[data-state='open'] {
+  animation: sheet-in-left var(--dur-slow) var(--ease-out);
+}
+.zd-sheet-left[data-state='closed'] {
+  animation: sheet-out-left var(--dur-base) var(--ease-in);
+}
+.zd-sheet-bottom[data-state='open'] {
+  animation: sheet-in-bottom var(--dur-slow) var(--ease-out);
+}
+.zd-sheet-bottom[data-state='closed'] {
+  animation: sheet-out-bottom var(--dur-base) var(--ease-in);
+}
+.zd-pop[data-state='open'],
+.zd-pop[data-state='delayed-open'] {
+  animation: pop-in var(--dur-fast) var(--ease-out);
+}
+.zd-pop[data-state='closed'] {
+  animation: pop-out var(--dur-instant) var(--ease-in);
+}
+.zd-toast[data-state='open'] {
+  animation: toast-in var(--dur-base) var(--ease-out);
+}
+.zd-toast[data-state='closed'] {
+  animation: toast-out var(--dur-fast) var(--ease-in) forwards;
+}
+.zd-banner {
+  animation: banner-in var(--dur-base) var(--ease-out);
+}
+
+/* Transiciones de vista: la tarjeta "viaja" de columna al cambiar de estado. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+::view-transition-group(*) {
+  animation-duration: var(--dur-move);
+  animation-timing-function: var(--ease-move);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -150,5 +483,10 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }

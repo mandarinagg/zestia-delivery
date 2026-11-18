@@ -46,3 +46,24 @@ export function formatTime(iso: string, timeZone: string = DEFAULT_TIMEZONE): st
 export function formatDateTime(iso: string, timeZone: string = DEFAULT_TIMEZONE): string {
   return `${formatDate(iso, timeZone)} ${formatTime(iso, timeZone)}`;
 }
+
+/**
+ * Duración operativa corta: `7` -> `7 min`, `65` -> `1 h 05`, `0` -> `< 1 min`.
+ * Para "tiempo en el estado" de un pedido; recibe minutos.
+ */
+export function formatMinutes(minutes: number): string {
+  if (!Number.isFinite(minutes) || minutes < 0) {
+    throw new RangeError(`Minutos inválidos: ${minutes}`);
+  }
+  const m = Math.floor(minutes);
+  if (m < 1) return '< 1 min';
+  if (m < 60) return `${m} min`;
+  return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`;
+}
+
+/** Minutos enteros transcurridos entre dos instantes ISO (UTC). Nunca negativo. */
+export function minutesBetween(fromIso: string, toIso: string): number {
+  const ms = new Date(toIso).getTime() - new Date(fromIso).getTime();
+  if (Number.isNaN(ms)) throw new RangeError('Fecha inválida');
+  return Math.max(0, Math.floor(ms / 60_000));
+}
