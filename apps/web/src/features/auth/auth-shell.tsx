@@ -3,7 +3,7 @@
  * contraseña). Panel de marca a la izquierda desde `lg`; en móvil, una franja de tinta arriba.
  * El panel de marca es decorativo (`aria-hidden`): los pedidos que muestra no son datos.
  */
-import { Eye, EyeOff } from 'lucide-react';
+import { Check, Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
 import type { InputHTMLAttributes, ReactNode, Ref } from 'react';
 import { LogoMark, Wordmark } from '@/components/brand/logo';
@@ -133,3 +133,24 @@ export function PasswordField({
 /** Enlace de texto de las pantallas de cuenta: subrayado y con área táctil de 44 px. */
 export const authLinkClass =
   'inline-flex min-h-11 items-center rounded-xs text-sm font-semibold underline decoration-input underline-offset-4 hover:decoration-foreground';
+
+/** Requisito de la contraseña nueva, con estado leído por lectores de pantalla. */
+export function Requirement({ met, children }: { met: boolean; children: string }) {
+  return (
+    <li
+      className={cn('flex items-center gap-2', met ? 'text-foreground' : 'text-muted-foreground')}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          'grid size-4 place-items-center rounded-full border',
+          met ? 'border-tone-green-solid bg-tone-green-solid text-background' : 'border-input',
+        )}
+      >
+        {met ? <Check className="size-3" strokeWidth={3} /> : null}
+      </span>
+      {children}
+      <span className="sr-only">{met ? ' (cumplido)' : ' (pendiente)'}</span>
+    </li>
+  );
+}

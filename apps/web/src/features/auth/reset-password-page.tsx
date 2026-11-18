@@ -11,36 +11,16 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useRouter } from '@tanstack/react-router';
 import { passwordResetTokenSchema } from '@zestia/contracts';
-import { Check, CircleCheck, Link2Off } from 'lucide-react';
+import { CircleCheck, Link2Off } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { ApiError, describeApiError } from '@/lib/api';
 import { storeSession } from '@/lib/session';
 import { cn } from '@/lib/utils';
-import { AuthShell, PasswordField, authLinkClass } from './auth-shell';
+import { AuthShell, PasswordField, Requirement, authLinkClass } from './auth-shell';
 import { MIN_PASSWORD, authApi, resetSchema, tokenFromHash, type ResetValues } from './auth-api';
 import { FormAlert } from './form-alert';
-
-function Requirement({ met, children }: { met: boolean; children: string }) {
-  return (
-    <li
-      className={cn('flex items-center gap-2', met ? 'text-foreground' : 'text-muted-foreground')}
-    >
-      <span
-        aria-hidden="true"
-        className={cn(
-          'grid size-4 place-items-center rounded-full border',
-          met ? 'border-tone-green-solid bg-tone-green-solid text-background' : 'border-input',
-        )}
-      >
-        {met ? <Check className="size-3" strokeWidth={3} /> : null}
-      </span>
-      {children}
-      <span className="sr-only">{met ? ' (cumplido)' : ' (pendiente)'}</span>
-    </li>
-  );
-}
 
 function InvalidLink({ hadToken }: { hadToken: boolean }) {
   return (
