@@ -16,7 +16,7 @@ jobs:
   verify:
     name: Format, lint, typecheck, test, build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -41,6 +41,8 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # Incluye los tests de integración de la API (aislamiento de tenants / RLS) contra un
+      # Postgres real levantado con Testcontainers: usa el Docker del runner (ubuntu-latest).
       - name: Test
         run: pnpm test
 
