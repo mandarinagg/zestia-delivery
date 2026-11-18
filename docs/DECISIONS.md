@@ -5,17 +5,17 @@ Formato liviano. Estados: **Propuesto → Aceptado | Rechazado | Reemplazado**. 
 | # | Decisión | Estado | Fecha |
 |---|----------|--------|-------|
 | 001 | Monolito modular | Aceptado | 2026-11-12 |
-| 002 | Monorepo pnpm + Turborepo | Propuesto | 2026-11-12 |
-| 003 | Backend NestJS + TypeScript | Propuesto | 2026-11-12 |
-| 004 | PostgreSQL + Prisma + RLS | Propuesto | 2026-11-12 |
-| 005 | Jobs con pg-boss (sin Redis inicial) | Propuesto | 2026-11-12 |
-| 006 | Tiempo real con SSE | Propuesto | 2026-11-12 |
-| 007 | Montos enteros en unidad mínima | Propuesto | 2026-11-12 |
-| 008 | Outbox transaccional | Propuesto | 2026-11-12 |
-| 009 | Incidencias ortogonales al estado | Propuesto | 2026-11-12 |
-| 010 | API de ingreso genérica; ZESTIA como cliente | Propuesto | 2026-11-12 |
-| 011 | Zonas por lista de barrios en MVP | Propuesto | 2026-11-12 |
-| 012 | Frontend React + Vite + TanStack + shadcn/ui; PWA en la misma app | Propuesto | 2026-11-12 |
+| 002 | Monorepo pnpm + Turborepo | Aceptado | 2026-11-17 |
+| 003 | Backend NestJS + TypeScript | Aceptado | 2026-11-17 |
+| 004 | PostgreSQL + Prisma + RLS | Aceptado | 2026-11-17 |
+| 005 | Jobs con pg-boss (sin Redis inicial) | Aceptado | 2026-11-17 |
+| 006 | Tiempo real con SSE | Aceptado | 2026-11-17 |
+| 007 | Montos enteros en unidad mínima | Aceptado | 2026-11-17 |
+| 008 | Outbox transaccional | Aceptado | 2026-11-17 |
+| 009 | Incidencias ortogonales al estado | Aceptado | 2026-11-17 |
+| 010 | API de ingreso genérica; ZESTIA como cliente | Aceptado | 2026-11-17 |
+| 011 | Zonas por lista de barrios en MVP | Aceptado | 2026-11-17 |
+| 012 | Frontend React + Vite + TanStack + shadcn/ui; PWA en la misma app | Aceptado | 2026-11-17 |
 | 013 | Hosting / proveedor cloud | Pendiente | — |
 
 ---

@@ -23,4 +23,4 @@ Actuá como arquitecto de software, product manager técnico y desarrollador sen
 
 ## Estado actual
 
-Release **R0 — Discovery**. Aún no hay código. Antes de programar R1, verificar que los ADR 002–012 estén aceptados.
+Release **R1 — Fundaciones** en curso (en paralelo con el cierre de R0: discovery, piloto, auditoría ZESTIA). ADR 001–012 aceptados; ADR-013 (hosting) pendiente.
