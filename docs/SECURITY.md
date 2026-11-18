@@ -77,7 +77,13 @@ No hay CORS habilitado: el frontend debe servirse del mismo sitio (en desarrollo
 - Tabla append-only y mínima: `tenant_id` (nulo para eventos sin tenant, como el login), `actor_type`/`actor_id`, `action` (`auth.login.succeeded`, …), `entity_type`/`entity_id`, `metadata` (JSON plano), `correlation_id`, `occurred_at`.
 - `zestia_app` solo tiene `INSERT` y `SELECT`; RLS: inserta en el tenant activo o sin tenant, y lee solo filas del tenant activo (las de `tenant_id NULL` no las ve). Un trigger rechaza `UPDATE`/`DELETE`/`TRUNCATE` incluso al dueño o a un superusuario.
 - **Sin PII:** `AuditService.record()` rechaza claves de metadata sospechosas (`password`, `token`, `email`, `phone`, …), valores con `@`, objetos anidados y valores largos. Eventos de auth: login ok/fallido (con motivo), logout, cambio de tenant ok/denegado, cambio de contraseña ok/fallido, reset pedido/fallido/completado.
-- Es deliberadamente chica para #17 (auditoría completa): ahí se suman `before`/`after`, IP (si se decide), consultas para Propietario/Admin y retención.
+- **Cambios de datos (#17):** cada acción crítica de negocio llama a `AuditService.recordChange({ action, entity, changes })` en la **misma transacción** que el cambio: si el cambio hace ROLLBACK, el evento también. El actor (usuario de la sesión) y el `correlationId` salen del contexto de tenant, no del llamador.
+- `changes` se arma con `auditDiff(antes, después, { fields, redacted })`:
+  - Solo entran los campos de la lista `fields` (allowlist) y solo si cambiaron.
+  - Los campos de `redacted` (teléfono, dirección, RUC, …) se guardan como `{ redacted: true }`: queda registrado **que** cambiaron, pero no el valor.
+  - `assertSafeAuditEvent` rechaza un campo de nombre sensible (`phone`, `email`, `address`, …) con valor en claro, valores con `@`, objetos anidados y textos de más de 500 caracteres.
+- **Consulta (#17):** `GET /api/v1/audit-logs` y `GET /api/v1/audit-logs/:id`, con permiso `audit:read` (Propietario y Admin). Solo muestran el tenant activo; los eventos sin tenant (login, reset) no se ven. El nombre del actor aparece solo si es o fue miembro del tenant.
+- **No se guarda la IP** (minimización). **Retención:** sin purga automática por ahora; el trigger append-only impide borrar. La política de retención depende de la consulta legal (#11).
 
 ### Logs
 

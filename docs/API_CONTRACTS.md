@@ -54,6 +54,30 @@ Todas las respuestas llevan `Cache-Control: no-store`. Errores de este módulo: 
 - `activeTenantId` es la preferencia guardada en la sesión (si el usuario tiene una sola membresía activa, el login la fija). Si deja de ser válida (membresía o tenant suspendidos), `me` devuelve `null` y los endpoints de tenant responden 403 hasta elegir otro.
 - Contraseña nueva: 12 a 128 caracteres. Email: se normaliza (`trim` + minúsculas). Token de reset: base64url de 43 caracteres; llega en el fragmento del enlace `…/restablecer-contrasena#token=…`.
 
+## Auditoría (`/api/v1/audit-logs`)
+
+> Implementado (issue #17). Esquemas Zod en `packages/contracts/src/audit.ts`. Permiso `audit:read` (Propietario y Admin). Solo lectura.
+
+| Método y ruta | Parámetros | Respuesta OK | Errores |
+|---|---|---|---|
+| `GET /audit-logs` | `action` (prefijo por segmentos: `merchants` incluye `merchants.updated`), `entityType`, `entityId`, `actorId`, `from` (inclusive) y `to` (exclusive) en ISO 8601 con zona, `cursor`, `limit` (1–100, por defecto 50) | `200 { data: AuditLogEntry[], nextCursor }`, más recientes primero | `400 VALIDATION_FAILED`, `401`, `403` |
+| `GET /audit-logs/:id` | — | `200 AuditLogEntry` | `400` (id no UUID), `404` (inexistente o de otro tenant) |
+
+`AuditLogEntry`:
+
+```json
+{
+  "id": "…",
+  "occurredAt": "2026-11-18T15:00:00.000Z",
+  "action": "merchants.updated",
+  "actor": { "type": "USER", "id": "…", "name": "Ana" },
+  "entity": { "type": "merchant", "id": "…" },
+  "changes": { "name": { "from": "La Esquina", "to": "La Esquina Centro" }, "phone": { "redacted": true } },
+  "metadata": {},
+  "correlationId": "…"
+}
+```
+
 ## API genérica de ingreso (R2)
 
 Autenticación: `Authorization: Bearer zd_live_<prefix>_<secret>` (API key por integración/tenant).

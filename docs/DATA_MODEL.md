@@ -57,7 +57,7 @@ erDiagram
 | `IdempotencyRecord` | tenantId, integrationId, key, requestHash, responseSnapshot, expiresAt | Único `(integrationId, key)` |
 | `OutboxEvent` / `WebhookDelivery` | tenantId, type, payload, status / eventId, attempt, status, nextAttemptAt, lastError | |
 | `TrackingLink` | tenantId, orderId, tokenHash, expiresAt | |
-| `AuditLog` | tenantId?, actorType, actorId, action, entityType, entityId, metadata (sin PII), correlationId, occurredAt; a futuro (#17): before, after | Append-only (trigger); `tenantId` nulo = evento sin tenant |
+| `AuditLog` | tenantId?, actorType, actorId, action, entityType, entityId, metadata (sin PII), changes (antes/después por campo; datos personales como `redacted`, #17), correlationId, occurredAt | Append-only (trigger); `tenantId` nulo = evento sin tenant |
 
 ## Convenciones
 

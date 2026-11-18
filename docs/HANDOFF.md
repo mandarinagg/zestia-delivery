@@ -1,6 +1,6 @@
 # Handoff — estado del trabajo
 
-> Última actualización: **2026-11-18**. Punto de partida para la próxima sesión (humana o de agentes).
+> Última actualización: **2026-11-18** (tarde: #16 y #17). Punto de partida para la próxima sesión (humana o de agentes).
 > Leer junto con [`CLAUDE.md`](../CLAUDE.md), [`ROADMAP.md`](ROADMAP.md) y [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
 
 ## Resumen
@@ -25,6 +25,8 @@ Release **R1 — Fundaciones** en curso. Ya están el monorepo, la multi-tenancy
 | `feat/20-ui-base` | Primera base de UI (genérica, reemplazada por el rediseño) | `feat/15` |
 | `feat/20-ui-redesign` | Sistema de diseño "Riel" + prototipos | `feat/20-ui-base` |
 | **`feat/r1-integracion`** | `feat/14` + `feat/20-ui-redesign` + este handoff | `feat/14` |
+| `feat/16-permisos` | Matriz rol → permiso, `@RequirePermission()` (#16) | `feat/r1-integracion` |
+| **`feat/17-auditoria`** | Auditoría con antes/después y consulta (#17). **Rama más reciente: incluye todo lo anterior** | `feat/16-permisos` |
 
 Flujo acordado: commits locales en ramas `feat/…`. El dueño decide cuándo pushear y cuándo mergear a `main`.
 
@@ -39,7 +41,7 @@ Flujo acordado: commits locales en ramas `feat/…`. El dueño decide cuándo pu
 | #14 Autenticación y sesiones | ✅ Hecho, solo backend |
 | #20 Base de UI | ✅ Hecho: sistema + prototipos, sin conectar a la API |
 | #16 Roles fijos y guardas de permisos | ✅ Hecho en `feat/16-permisos` (matriz en `packages/auth`, `@RequirePermission()`) |
-| #17 Auditoría transversal | ⏭ Siguiente (ya existe `audit_logs` mínima y `AuditService.record()`) |
+| #17 Auditoría transversal | ✅ Backend en `feat/17-auditoria` (`recordChange` + `auditDiff`, `GET /audit-logs`); la vista web va con la conexión del frontend |
 | #19 CRUD de comercios y sucursales | ⏭ Después de #16 |
 | #18 Usuarios del tenant e invitaciones | Pendiente |
 
@@ -84,9 +86,7 @@ pnpm dev             # API :3000 · web :5173
 ## Próximos pasos sugeridos
 
 1. ~~**#16 Permisos.**~~ Hecho en `feat/16-permisos`: matriz en `packages/auth` (detalle en [`SECURITY.md`](SECURITY.md#roles-y-permisos-issue-16)), `@RequirePermission()` obligatorio en cada ruta de tenant. Roles alineados con la DB (`OWNER, ADMIN, OPERATOR, SUPERVISOR, COURIER, MERCHANT`). Falta alinear el prototipo de login, que sigue con `admin, operator, merchant, courier`, cuando se conecte a la API (paso 3).
-2. **#17 Auditoría.**
-   - Extender `AuditService` / `audit_logs` con before/after y un interceptor transversal.
-   - Agregar una vista para Propietario/Admin.
+2. ~~**#17 Auditoría.**~~ Backend hecho en `feat/17-auditoria`. Columna `changes`, más `AuditService.recordChange()` y `auditDiff()`; detalle en [`SECURITY.md`](SECURITY.md#auditoría-audit_logs). Consulta con `GET /api/v1/audit-logs`. Se eligió registrar desde el servicio, en la misma transacción, en lugar de un interceptor genérico: un interceptor no conoce el estado anterior de la entidad. Falta la vista web.
 3. **Conectar el frontend a la API**, es decir, pasar el login de prototipo a real.
    - Configurar el proxy de Vite (no hay CORS: misma origin).
    - Usar `credentials: 'include'` y mandar `X-CSRF-Token` en cada mutación.

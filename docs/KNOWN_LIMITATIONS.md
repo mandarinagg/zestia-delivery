@@ -24,7 +24,11 @@ Lista honesta de lo que el sistema **no** hace (o aún no). Se actualiza en cada
 - Al deshabilitar un usuario (`status = DISABLED`) sus sesiones dejan de validar en la próxima request, pero no hay un endpoint de administración para hacerlo.
 - El rate limit de login no bloquea la cuenta (solo frena por ventana): no hay "bloqueo hasta que un admin la desbloquee" ni CAPTCHA. El límite por IP depende de configurar bien `TRUST_PROXY_HOPS` detrás de un proxy.
 - El email de reset se envía "fire and forget": si el SMTP falla se registra un error en el log (sin destinatario) pero la respuesta al usuario es la misma; no hay reintentos ni outbox de emails.
-- Auditoría mínima (`audit_logs`): solo eventos de autenticación, sin `before`/`after`, sin endpoint de consulta ni política de retención (#17).
+- Auditoría (#17):
+  - `recordChange()` y `auditDiff()` están listos, pero todavía no hay acciones de negocio que los usen: los primeros son el CRUD de comercios (#19) y la gestión de usuarios (#18).
+  - Sin política de retención ni purga (depende de la consulta legal, #11). No se guarda la IP.
+  - Los intentos denegados por permiso (403) no se auditan.
+  - La vista web llega cuando se conecte el frontend a la API.
 - Los errores de la API usan `{ statusCode, code }`, todavía no el formato RFC 9457 de `API_CONTRACTS.md`.
 - El único endpoint de negocio es `GET /api/v1/merchants/:id` (lectura mínima para probar el aislamiento). El CRUD de comercios es #19.
 - `users` y `tenants` tienen RLS y la API solo puede leerlos: el alta de tenants (onboarding de plataforma) y el alta de usuarios necesitan su propio camino. El login por email usa funciones `SECURITY DEFINER` acotadas (#14).

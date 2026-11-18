@@ -15,6 +15,7 @@
 - Principal de prueba: `createTestApp()` reemplaza `PRINCIPAL_RESOLVER` por `TestPrincipalResolver` (cabecera `x-test-principal: <userId>[:<activeTenantId>]`). Vive en `src/testing/`, fuera del build.
 - Autenticación real: `createTestApp({ auth: 'session' })` usa la sesión por cookie de verdad. `login(app, email, password)` (`src/testing/auth-session.ts`) devuelve la sesión y `session.attach(request)` agrega cookie, `Origin` y `X-CSRF-Token`. `TestSeeder.userWithPassword()` crea usuarios con contraseña. `app.mail` captura los emails en memoria (`waitFor(destinatario)`), sin SMTP.
 - Aislamiento por endpoint: `expectTenantIsolation({ app, seeder, seed, request })` (`src/testing/expect-tenant-isolation.ts`). Con `auth: 'session'` además inicia sesión de verdad y prueba una sesión con la preferencia de tenant manipulada en la DB.
+- Auditoría (`src/modules/audit/audit-logs.int.test.ts`): aislamiento, filtros, paginación por cursor, matriz de permisos y `recordChange()` (actor y correlationId del contexto, ROLLBACK junto con el cambio, rechazo de datos sensibles en claro). `TestSeeder.auditLog()` siembra eventos.
 - Autenticación (`src/modules/auth/*.int.test.ts`): login/logout/cookies/vencimientos, CSRF, rate limit (dos instancias de la API contra la misma DB), cambio de tenant, reset y cambio de contraseña, auditoría sin PII, y abuso directo de las funciones `SECURITY DEFINER` como `zestia_app`. El seed de desarrollo también tiene test (`src/seed/dev-seed.int.test.ts`).
 
 ## Suites obligatorias (MVP)
