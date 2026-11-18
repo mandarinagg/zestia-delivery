@@ -24,7 +24,7 @@ Plataforma web SaaS multiempresa para gestionar empresas de delivery — pedidos
 - [Integración ZESTIA](docs/ZESTIA_INTEGRATION.md) *(propuesta, sin confirmar)*
 - [Seguridad y privacidad](docs/SECURITY.md)
 - [Pruebas](docs/TESTING.md)
-- [UI: tokens, componentes y convenciones](docs/UI.md)
+- [UI: sistema de diseño, movimiento, componentes, prototipos](docs/UI.md)
 - [Despliegue](docs/DEPLOYMENT.md)
 - [Riesgos](docs/RISKS.md)
 - [Discovery](docs/DISCOVERY.md)
@@ -77,7 +77,8 @@ Verificación rápida:
 - API: <http://localhost:3000/health/live> → `{"status":"ok"}`
 - API + DB: <http://localhost:3000/health/ready> → `{"status":"ok","checks":{"database":"ok"}}`
 - Web: <http://localhost:5173>
-- Guía de UI (tokens, tabla, formularios, estados; datos de ejemplo): <http://localhost:5173/panel/ui>. Funciona sin la API ni Docker: `pnpm --filter @zestia/web dev`.
+- Guía de UI (sistema "Riel": tokens, estados, movimiento, componentes; datos de ejemplo): <http://localhost:5173/panel/ui>. Funciona sin la API ni Docker: `pnpm --filter @zestia/web dev`.
+- Prototipos navegables, rotulados y con datos de ejemplo (enlazados desde la guía): despacho en vivo (`/panel/prototipo/despacho`), detalle de pedido (`/panel/prototipo/pedido/DEMO-1043`), app del repartidor (`/prototipo/repartidor`), seguimiento público (`/prototipo/seguimiento`), ingreso y empresa (`/prototipo/ingreso`), recuperar y restablecer contraseña (`/prototipo/olvide-contrasena`, `/prototipo/restablecer-contrasena`). Detalle en [`docs/UI.md`](docs/UI.md).
 - Mailpit (correos de desarrollo): <http://localhost:8025>
 - Postgres: `localhost:5432` (claves en `infra/docker/.env`). Roles:
   - `zestia_app` — el único que usa la API (`DATABASE_URL`). Sin `BYPASSRLS`, no es dueño de tablas: la API se niega a arrancar con un rol privilegiado.
@@ -98,13 +99,14 @@ Para apagar la infraestructura: `pnpm infra:down` (para borrar también el volum
 | `pnpm db:migrate`                   | Aplica las migraciones pendientes (`prisma migrate deploy`) |
 | `pnpm db:migrate:dev`               | Crea una migración nueva desde `apps/api/prisma/schema.prisma` |
 | `pnpm format` / `pnpm format:check` | Prettier (escribe / solo verifica)            |
+| `pnpm --filter @zestia/web contrast` | Verifica WCAG 2.2 AA de los tokens de color claro y oscuro (falla si un par baja del mínimo) |
 
 
 ### Estructura
 
 ```
 apps/api            NestJS (monolito modular)
-apps/web            React + Vite + Tailwind + shadcn/ui + TanStack Router/Query
+apps/web            React + Vite + Tailwind + Radix + TanStack Router/Query/Table (sistema "Riel", docs/UI.md)
 packages/contracts  Esquemas Zod compartidos
 packages/domain     Lógica pura (sin frameworks ni DB)
 packages/auth       Matriz rol → permisos
