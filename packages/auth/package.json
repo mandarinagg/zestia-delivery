@@ -16,6 +16,9 @@
     "typecheck": "tsc -p tsconfig.test.json",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@zestia/contracts": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^26.6.6",
     "@zestia/config": "workspace:*",
