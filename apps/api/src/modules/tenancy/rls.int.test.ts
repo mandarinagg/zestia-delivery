@@ -67,6 +67,7 @@ describe('RLS en Postgres (rol zestia_app)', () => {
     membershipB = await seeder.membership(tenantB, userB, 'OWNER');
     merchantA = await seeder.merchant(tenantA, 'Comercio A');
     merchantB = await seeder.merchant(tenantB, 'Comercio B');
+    await seeder.branch(tenantA, merchantA);
   });
 
   afterAll(async () => {
@@ -140,7 +141,12 @@ describe('RLS en Postgres (rol zestia_app)', () => {
          WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p')
          ORDER BY c.relname`,
       );
-      expect(rows.map((r) => r.relname)).toEqual(['audit_logs', 'memberships', 'merchants']);
+      expect(rows.map((r) => r.relname)).toEqual([
+        'audit_logs',
+        'memberships',
+        'merchant_branches',
+        'merchants',
+      ]);
       for (const row of rows) {
         expect(row, row.relname).toMatchObject({ relrowsecurity: true, relforcerowsecurity: true });
         expect(row.policies, row.relname).toBeGreaterThan(0);
@@ -162,18 +168,21 @@ describe('RLS en Postgres (rol zestia_app)', () => {
     it('las políticas de tablas de negocio usan app_current_tenant_id() en USING y WITH CHECK', async () => {
       const { rows } = await admin.query(
         `SELECT tablename, cmd, qual, with_check FROM pg_policies
-         WHERE schemaname = 'public' AND tablename = 'merchants'`,
+         WHERE schemaname = 'public' AND tablename IN ('merchants', 'merchant_branches')
+         ORDER BY tablename`,
       );
-      expect(rows).toHaveLength(1);
-      expect(rows[0]).toMatchObject({ cmd: 'ALL' });
-      expect(rows[0].qual).toContain('app_current_tenant_id()');
-      expect(rows[0].with_check).toContain('app_current_tenant_id()');
+      expect(rows.map((r) => r.tablename)).toEqual(['merchant_branches', 'merchants']);
+      for (const row of rows) {
+        expect(row, row.tablename).toMatchObject({ cmd: 'ALL' });
+        expect(row.qual, row.tablename).toContain('app_current_tenant_id()');
+        expect(row.with_check, row.tablename).toContain('app_current_tenant_id()');
+      }
     });
   });
 
   describe('sin contexto de tenant (fail-closed)', () => {
     it('cero filas en todas las tablas, sin error', async () => {
-      for (const table of ['merchants', 'memberships', 'tenants', 'users']) {
+      for (const table of ['merchants', 'merchant_branches', 'memberships', 'tenants', 'users']) {
         const { rows } = await app.query(`SELECT count(*)::int AS n FROM ${table}`);
         expect(rows[0].n, table).toBe(0);
       }
