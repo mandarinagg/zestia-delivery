@@ -1,0 +1,120 @@
+// Esquema de datos de ZESTIA DELIVERY. Convenciones: docs/DATA_MODEL.md.
+//  - PK UUID v7 (generado por Prisma), tablas y columnas en snake_case.
+//  - Fechas `timestamptz` (UTC). Montos BIGINT en unidad mínima (ADR-007).
+//  - Toda tabla de negocio tiene `tenant_id NOT NULL` y RLS forzada (ver la migración
+//    `*_tenancy_rls`). Las políticas RLS no se expresan en Prisma: viven en el SQL de migraciones.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+
+  @@map("tenant_status")
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+
+  @@map("user_status")
+}
+
+/// Roles fijos del MVP (docs/SPEC.md §3). Finanzas llega en R5; el soporte de plataforma
+/// no es una membresía de tenant.
+enum MembershipRole {
+  OWNER
+  ADMIN
+  OPERATOR
+  SUPERVISOR
+  COURIER
+  MERCHANT
+
+  @@map("membership_role")
+}
+
+enum MerchantStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+
+  @@map("merchant_status")
+}
+
+/// Empresa de delivery (cliente del SaaS). RLS: visible solo si es el tenant activo
+/// o si el usuario del contexto tiene membresía en él.
+model Tenant {
+  id        String       @id @default(uuid(7)) @db.Uuid
+  name      String
+  slug      String       @unique
+  timezone  String       @default("America/Asuncion")
+  currency  String       @default("PYG") @db.Char(3)
+  status    TenantStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  memberships Membership[]
+  merchants   Merchant[]
+
+  @@map("tenants")
+}
+
+/// Usuario global (sin tenant_id). Credenciales y 2FA llegan con la autenticación (issue #14).
+model User {
+  id        String     @id @default(uuid(7)) @db.Uuid
+  email     String     @unique
+  name      String
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  memberships Membership[]
+
+  @@map("users")
+}
+
+/// Une usuario ↔ tenant ↔ rol. Es la fuente del tenant activo de una request.
+model Membership {
+  id        String         @id @default(uuid(7)) @db.Uuid
+  tenantId  String         @map("tenant_id") @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  role      MembershipRole
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+  @@map("memberships")
+}
+
+/// Comercio asociado. Tabla de negocio mínima de R1 para probar el aislamiento de punta a punta;
+/// el CRUD completo es el issue #19.
+model Merchant {
+  id        String         @id @default(uuid(7)) @db.Uuid
+  tenantId  String         @map("tenant_id") @db.Uuid
+  name      String
+  ruc       String?
+  phone     String?
+  status    MerchantStatus @default(ACTIVE)
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime?      @map("deleted_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  // (tenant_id, id) permite FKs compuestas desde tablas hijas: una sucursal no puede
+  // apuntar a un comercio de otro tenant.
+  @@unique([tenantId, id])
+  @@map("merchants")
+}

@@ -17,6 +17,8 @@
     "format": "prettier --write .",
     "infra:up": "docker compose -f infra/docker/docker-compose.yml up -d --wait",
     "infra:down": "docker compose -f infra/docker/docker-compose.yml down",
+    "db:migrate": "pnpm --filter @zestia/api db:migrate",
+    "db:migrate:dev": "pnpm --filter @zestia/api db:migrate:dev",
     "format:check": "prettier --check ."
   },
   "devDependencies": {
