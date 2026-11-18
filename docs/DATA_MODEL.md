@@ -1,6 +1,7 @@
 # Modelo de datos
 
 > Estado: **Conceptual** — se convierte en esquema Prisma en R1/R2. Convenciones al final.
+> Implementado (issue #15, `apps/api/prisma/schema.prisma`): `Tenant`, `User` (sin credenciales aún), `Membership` (sin `courierId`/`merchantId` aún) y `Merchant` (mínimo, CRUD en #19), con RLS.
 
 ```mermaid
 erDiagram

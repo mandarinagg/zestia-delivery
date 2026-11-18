@@ -17,4 +17,10 @@ Lista honesta de lo que el sistema **no** hace (o aún no). Se actualiza en cada
 
 ## Estado actual del repositorio
 
-- Solo documentación y plan. **Aún no hay código** (inicia en R1 tras aprobación).
+- R1 en curso: monorepo (#13) y multi-tenancy con RLS (#15).
+- **Sin autenticación todavía (#14):** todo endpoint de tenant responde 401 fuera de los tests. El principal de los tests se inyecta con un resolver solo de pruebas.
+- El único endpoint de negocio es `GET /api/v1/merchants/:id` (lectura mínima para probar el aislamiento). El CRUD de comercios es #19. El control por rol de ese endpoint (`@TenantScoped({ roles })`) es provisorio hasta la matriz de permisos de `packages/auth`.
+- `users` y `tenants` tienen RLS y la API solo puede leerlos: el alta de tenants (onboarding de plataforma), el alta de usuarios y el login por email necesitan su propio camino (#14).
+- Las tablas tienen `FORCE ROW LEVEL SECURITY`, que también aplica al dueño: una migración de **datos** sobre tablas de negocio debe fijar `app.tenant_id` por tenant (o correrla un rol de mantenimiento dedicado); las migraciones de esquema no se ven afectadas.
+- `pnpm test` en `apps/api` necesita Docker (Testcontainers) para los tests de integración; `pnpm --filter @zestia/api test:unit` corre solo los unitarios.
+- Membresías sin `courierId`/`merchantId` todavía (llegan con repartidores y portal de comercio). Email de usuario único sensible a mayúsculas (lo define #14).

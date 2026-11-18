@@ -63,15 +63,24 @@ cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
 
 pnpm infra:up              # Postgres 17 + Mailpit (espera a que estén healthy)
+pnpm db:migrate            # aplica las migraciones (rol zestia_migrator)
 pnpm dev                   # API en :3000 y web en :5173
 ```
+
+> **¿Ya tenías el volumen de Postgres de una versión anterior?** Los roles de la base
+> (`zestia_migrator`, `zestia_app`) se crean solo al inicializar un volumen vacío. Recrealo:
+> `docker compose -f infra/docker/docker-compose.yml down -v && pnpm infra:up && pnpm db:migrate`.
 
 Verificación rápida:
 
 - API: <http://localhost:3000/health/live> → `{"status":"ok"}`
+- API + DB: <http://localhost:3000/health/ready> → `{"status":"ok","checks":{"database":"ok"}}`
 - Web: <http://localhost:5173>
 - Mailpit (correos de desarrollo): <http://localhost:8025>
-- Postgres: `localhost:5432` (usuario/clave en `infra/docker/.env`; todavía ninguna app lo usa)
+- Postgres: `localhost:5432` (claves en `infra/docker/.env`). Roles:
+  - `zestia_app` — el único que usa la API (`DATABASE_URL`). Sin `BYPASSRLS`, no es dueño de tablas: la API se niega a arrancar con un rol privilegiado.
+  - `zestia_migrator` — dueño del esquema, solo para migraciones (`MIGRATION_DATABASE_URL`).
+  - `zestia_admin` (`POSTGRES_USER`) — superusuario del contenedor, solo administración.
 
 Para apagar la infraestructura: `pnpm infra:down` (para borrar también el volumen de datos: `docker compose -f infra/docker/docker-compose.yml down -v`).
 
@@ -83,7 +92,9 @@ Para apagar la infraestructura: `pnpm infra:down` (para borrar también el volum
 | `pnpm build`                        | Compila todos los paquetes y apps (Turborepo) |
 | `pnpm lint`                         | ESLint, incluidos los límites de módulos      |
 | `pnpm typecheck`                    | TypeScript estricto en todo el monorepo       |
-| `pnpm test`                         | Vitest en todos los paquetes                  |
+| `pnpm test`                         | Vitest en todos los paquetes (la API incluye tests de integración con Testcontainers: **requiere Docker**) |
+| `pnpm db:migrate`                   | Aplica las migraciones pendientes (`prisma migrate deploy`) |
+| `pnpm db:migrate:dev`               | Crea una migración nueva desde `apps/api/prisma/schema.prisma` |
 | `pnpm format` / `pnpm format:check` | Prettier (escribe / solo verifica)            |
 
 
@@ -107,7 +118,13 @@ Se verifican con `eslint-plugin-boundaries` (`packages/config/eslint/boundaries.
 - `packages/domain` y `packages/contracts` no dependen de otros paquetes del monorepo; `packages/domain` tampoco de frameworks, DB/ORM ni I/O (`@nestjs/*`, `prisma`, `pg`, `node:fs`, …).
 - Cada módulo de la API vive en `apps/api/src/modules/<nombre>/` y expone su API pública **solo** en `index.ts`. Importar desde otro módulo cualquier archivo que no sea ese `index.ts` (servicios, repositorios, entidades) es un error. La comunicación asíncrona entre módulos va por eventos de dominio (outbox).
 
-> Esta base no incluye ORM, auth ni multi-tenancy: llegan en los issues siguientes.
+### Base de datos y multi-tenancy
+
+- Prisma 7 en `apps/api` (`prisma/schema.prisma`, migraciones en `prisma/migrations/`). El cliente se genera en `apps/api/src/generated/` (ignorado por git) automáticamente antes de `dev`, `build`, `typecheck` y `test`; a mano: `pnpm --filter @zestia/api db:generate`.
+- Toda tabla accesible por la API tiene **RLS forzada**. Las políticas RLS se escriben en el SQL de la migración (Prisma no las modela): al crear una tabla de negocio, editá la migración con `--create-only` y agregá `ENABLE`/`FORCE ROW LEVEL SECURITY`, la política por `app_current_tenant_id()` y el `GRANT` a `zestia_app`. Un test falla si falta.
+- El acceso a datos de negocio pasa **solo** por `TenantDb` del módulo `tenancy` (`@TenantScoped()` en el controller). ESLint impide importar el cliente Prisma crudo fuera de `database/`, `health/` y `modules/tenancy/`. Detalle: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#multi-tenancy).
+- Cada endpoint nuevo usa el helper `expectTenantIsolation` (`apps/api/src/testing/`).
+- Autenticación real: issue #14. Mientras tanto todo endpoint de tenant responde 401.
 
 ## Licencia
 
