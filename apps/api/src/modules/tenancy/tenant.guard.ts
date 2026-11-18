@@ -4,18 +4,20 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { MembershipRole } from '../../generated/prisma/enums';
+import { type Permission, canAll } from '@zestia/auth';
 import { PRINCIPAL_RESOLVER, type PrincipalResolver } from './principal';
 import { setRequestTenantContext } from './tenant-request';
-import { TENANT_ROLES } from './tenant-metadata';
+import { TENANT_PERMISSIONS } from './tenant-metadata';
 import { TenantResolver } from './tenant.resolver';
 
 /**
- * Resuelve el tenant en el servidor: principal autenticado → membresía activa → rol.
- * Ignora a propósito cualquier `tenantId` que venga en headers, query o body.
+ * Resuelve el tenant en el servidor: principal autenticado → membresía activa → rol → permiso
+ * (`@RequirePermission()`, matriz de `@zestia/auth`). Ignora a propósito cualquier `tenantId`
+ * o rol que venga en headers, query o body.
  */
 @Injectable()
 export class TenantGuard implements CanActivate {
@@ -35,12 +37,17 @@ export class TenantGuard implements CanActivate {
       throw new ForbiddenException({ statusCode: 403, code: resolution.reason });
     }
 
-    const roles = this.reflector.getAllAndOverride<readonly MembershipRole[] | null>(TENANT_ROLES, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
-    if (roles && !roles.includes(resolution.context.role)) {
-      throw new ForbiddenException({ statusCode: 403, code: 'ROLE_NOT_ALLOWED' });
+    const required = this.reflector.getAllAndOverride<readonly Permission[] | undefined>(
+      TENANT_PERMISSIONS,
+      [context.getHandler(), context.getClass()],
+    );
+    // Falla cerrado: una ruta de tenant sin permiso declarado es un error de programación
+    // (app-routes.test.ts lo atrapa antes de llegar acá).
+    if (!required || required.length === 0) {
+      throw new InternalServerErrorException();
+    }
+    if (!canAll(resolution.context.role, required)) {
+      throw new ForbiddenException({ statusCode: 403, code: 'PERMISSION_DENIED' });
     }
 
     setRequestTenantContext(context.switchToHttp().getRequest<object>(), resolution.context);

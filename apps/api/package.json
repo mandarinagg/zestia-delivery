@@ -24,6 +24,7 @@
     "@nestjs/platform-express": "^12.5.1",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
+    "@zestia/auth": "workspace:*",
     "@zestia/contracts": "workspace:*",
     "nestjs-pino": "^5.0.0",
     "nodemailer": "^10.2.1",

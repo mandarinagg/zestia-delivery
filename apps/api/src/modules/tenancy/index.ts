@@ -9,8 +9,9 @@ export {
 export { TenancyModule } from './tenancy.module';
 export { TenantContextMissingError, isUuid, type TenantContext } from './tenant-context';
 export { TenantDb } from './tenant-db';
-export { TENANT_EXEMPT, TENANT_ROLES, TENANT_SCOPED } from './tenant-metadata';
-export { TenantExempt, TenantScoped, type TenantScopedOptions } from './tenant-scoped.decorator';
+export { RequirePermission } from './require-permission.decorator';
+export { TENANT_EXEMPT, TENANT_PERMISSIONS, TENANT_SCOPED } from './tenant-metadata';
+export { TenantExempt, TenantScoped } from './tenant-scoped.decorator';
 export type { TenantTx } from './tenant-transaction';
 export { TenantGuard } from './tenant.guard';
 export {

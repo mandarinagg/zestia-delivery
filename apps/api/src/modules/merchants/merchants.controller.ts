@@ -1,5 +1,5 @@
 import { Controller, Get, NotFoundException, Param, ParseUUIDPipe } from '@nestjs/common';
-import { MembershipRole, TenantScoped } from '../tenancy';
+import { RequirePermission, TenantScoped } from '../tenancy';
 import { MerchantsRepository } from './merchants.repository';
 
 export interface MerchantView {
@@ -17,18 +17,12 @@ export interface MerchantView {
  * El CRUD completo, listado paginado y contratos Zod son el issue #19.
  */
 @Controller('api/v1/merchants')
-@TenantScoped({
-  roles: [
-    MembershipRole.OWNER,
-    MembershipRole.ADMIN,
-    MembershipRole.OPERATOR,
-    MembershipRole.SUPERVISOR,
-  ],
-})
+@TenantScoped()
 export class MerchantsController {
   constructor(private readonly merchants: MerchantsRepository) {}
 
   @Get(':id')
+  @RequirePermission('merchants:read')
   async findOne(@Param('id', new ParseUUIDPipe()) id: string): Promise<MerchantView> {
     const merchant = await this.merchants.findById(id);
     // Inexistente y "de otro tenant" son indistinguibles: siempre 404.
