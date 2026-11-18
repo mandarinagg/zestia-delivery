@@ -217,7 +217,7 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 
-// --- Auditoría (mínima en #14; interceptor, antes/después y vista de admin en #17) ----------
+// --- Auditoría (#14 mínima; #17: cambios antes/después y consulta para Propietario/Admin) -----
 
 enum AuditActorType {
   USER
@@ -239,10 +239,14 @@ model AuditLog {
   entityType    String?        @map("entity_type")
   entityId      String?        @map("entity_id")
   metadata      Json           @default("{}")
+  /// Cambios antes/después por campo (`auditDiff()`); los datos personales van como `redacted`.
+  changes       Json?
   correlationId String?        @map("correlation_id")
   occurredAt    DateTime       @default(now()) @map("occurred_at") @db.Timestamptz(3)
 
   @@index([tenantId, occurredAt])
   @@index([occurredAt])
+  @@index([tenantId, entityType, entityId, occurredAt], map: "audit_logs_tenant_entity_idx")
+  @@index([tenantId, id(sort: Desc)], map: "audit_logs_tenant_id_desc_idx")
   @@map("audit_logs")
 }
