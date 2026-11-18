@@ -10,9 +10,10 @@ import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { describeApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { AuthShell, authLinkClass } from './auth-shell';
-import { authApi, describeAuthError, forgotSchema, type ForgotValues } from './auth-api';
+import { authApi, forgotSchema, type ForgotValues } from './auth-api';
 import { FormAlert } from './form-alert';
 
 function BackToLogin() {
@@ -93,7 +94,7 @@ export function ForgotPasswordPage() {
             await authApi.forgotPassword(values.email);
             setSentTo(values.email.trim());
           } catch (e) {
-            setError(describeAuthError(e));
+            setError(describeApiError(e));
           }
         })}
       >

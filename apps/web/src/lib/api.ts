@@ -93,3 +93,22 @@ async function toApiError(response: Response): Promise<ApiError> {
   }
   return new ApiError(response.status, `HTTP_${response.status}`, retryAfter);
 }
+
+/** Texto para una persona a partir de un error de la API (sin detalles técnicos). */
+export function describeApiError(error: unknown): string {
+  if (error instanceof NetworkError) {
+    return 'No pudimos conectar con el servidor. Revisá tu conexión y probá de nuevo.';
+  }
+  if (error instanceof ApiError) {
+    if (error.code === 'TOO_MANY_ATTEMPTS') {
+      const minutes = error.retryAfter ? Math.max(1, Math.ceil(error.retryAfter / 60)) : null;
+      return minutes
+        ? `Hubo demasiados intentos. Esperá ${minutes === 1 ? '1 minuto' : `${minutes} minutos`} y probá de nuevo.`
+        : 'Hubo demasiados intentos. Esperá unos minutos y probá de nuevo.';
+    }
+    if (error.code === 'CSRF_ORIGIN_REJECTED' || error.code === 'CSRF_TOKEN_INVALID') {
+      return 'Tu sesión se desactualizó. Recargá la página y probá de nuevo.';
+    }
+  }
+  return 'Algo salió mal de nuestro lado. Probá de nuevo en un momento.';
+}

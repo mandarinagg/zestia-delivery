@@ -15,18 +15,11 @@ import { Check, CircleCheck, Link2Off } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { ApiError } from '@/lib/api';
+import { ApiError, describeApiError } from '@/lib/api';
 import { storeSession } from '@/lib/session';
 import { cn } from '@/lib/utils';
 import { AuthShell, PasswordField, authLinkClass } from './auth-shell';
-import {
-  MIN_PASSWORD,
-  authApi,
-  describeAuthError,
-  resetSchema,
-  tokenFromHash,
-  type ResetValues,
-} from './auth-api';
+import { MIN_PASSWORD, authApi, resetSchema, tokenFromHash, type ResetValues } from './auth-api';
 import { FormAlert } from './form-alert';
 
 function Requirement({ met, children }: { met: boolean; children: string }) {
@@ -157,7 +150,7 @@ export function ResetPasswordPage() {
               setState('expired');
               return;
             }
-            setError(describeAuthError(e));
+            setError(describeApiError(e));
           }
         })}
       >

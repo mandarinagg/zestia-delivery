@@ -4,7 +4,7 @@ import { ArrowLeft, Check } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { ApiError } from '@/lib/api';
+import { ApiError, describeApiError } from '@/lib/api';
 import {
   ROLE_LABEL,
   homeFor,
@@ -14,7 +14,7 @@ import {
 } from '@/lib/session';
 import { cn } from '@/lib/utils';
 import { AuthShell, authLinkClass } from './auth-shell';
-import { authApi, describeAuthError, safeRedirect } from './auth-api';
+import { authApi, safeRedirect } from './auth-api';
 import { FormAlert } from './form-alert';
 
 /**
@@ -96,7 +96,7 @@ export function CompanyPage({ session, redirect }: { session: Session; redirect?
             setError(
               err instanceof ApiError && err.code === 'NO_ACTIVE_MEMBERSHIP'
                 ? 'Ya no tenés acceso a esa empresa. Elegí otra o pedí que revisen tu acceso.'
-                : describeAuthError(err),
+                : describeApiError(err),
             );
           } finally {
             setBusy(false);

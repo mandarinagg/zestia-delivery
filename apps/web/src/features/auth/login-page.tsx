@@ -6,16 +6,10 @@ import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { ApiError } from '@/lib/api';
+import { ApiError, describeApiError } from '@/lib/api';
 import { activeMembership, homeFor, storeSession } from '@/lib/session';
 import { AuthShell, PasswordField, authLinkClass } from './auth-shell';
-import {
-  authApi,
-  describeAuthError,
-  loginSchema,
-  safeRedirect,
-  type LoginValues,
-} from './auth-api';
+import { authApi, loginSchema, safeRedirect, type LoginValues } from './auth-api';
 import { FormAlert } from './form-alert';
 
 /**
@@ -62,7 +56,7 @@ export function LoginPage({ redirect }: { redirect?: string }) {
             setError(
               e instanceof ApiError && e.code === 'INVALID_CREDENTIALS'
                 ? 'El correo o la contraseña no coinciden. Revisalos o pedí un enlace para crear una contraseña nueva.'
-                : describeAuthError(e),
+                : describeApiError(e),
             );
           }
         })}

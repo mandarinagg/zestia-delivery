@@ -5,7 +5,7 @@ import {
   forgotPasswordResponseSchema,
 } from '@zestia/contracts';
 import { z } from 'zod';
-import { ApiError, NetworkError, api } from '@/lib/api';
+import { api } from '@/lib/api';
 import type { Session } from '@/lib/session';
 
 /** Llamadas a `/api/v1/auth` (contratos en `@zestia/contracts`, docs/API_CONTRACTS.md). */
@@ -86,23 +86,4 @@ export function safeRedirect(value: unknown): string | null {
   if (value.startsWith('//') || value.startsWith('/\\') || value.includes('://')) return null;
   if (value.startsWith('/ingreso')) return null;
   return value;
-}
-
-/** Texto para una persona a partir de un error de la API (sin detalles técnicos). */
-export function describeAuthError(error: unknown): string {
-  if (error instanceof NetworkError) {
-    return 'No pudimos conectar con el servidor. Revisá tu conexión y probá de nuevo.';
-  }
-  if (error instanceof ApiError) {
-    if (error.code === 'TOO_MANY_ATTEMPTS') {
-      const minutes = error.retryAfter ? Math.max(1, Math.ceil(error.retryAfter / 60)) : null;
-      return minutes
-        ? `Hubo demasiados intentos. Esperá ${minutes === 1 ? '1 minuto' : `${minutes} minutos`} y probá de nuevo.`
-        : 'Hubo demasiados intentos. Esperá unos minutos y probá de nuevo.';
-    }
-    if (error.code === 'CSRF_ORIGIN_REJECTED' || error.code === 'CSRF_TOKEN_INVALID') {
-      return 'Tu sesión se desactualizó. Recargá la página y probá de nuevo.';
-    }
-  }
-  return 'Algo salió mal de nuestro lado. Probá de nuevo en un momento.';
 }
