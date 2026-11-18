@@ -1,6 +1,7 @@
 /*
- * PROTOTIPO — Marco común de las pantallas de cuenta (ingreso, empresa, recuperar y restablecer
+ * Marco común de las pantallas de cuenta (ingreso, empresa, recuperar y restablecer
  * contraseña). Panel de marca a la izquierda desde `lg`; en móvil, una franja de tinta arriba.
+ * El panel de marca es decorativo (`aria-hidden`): los pedidos que muestra no son datos.
  */
 import { Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
@@ -12,7 +13,6 @@ import { OrderRail } from '@/components/ui/order-rail';
 import { OrderStatusPill } from '@/components/ui/status-pill';
 import type { OrderStatus } from '@/lib/order-states';
 import { cn } from '@/lib/utils';
-import { PrototypeBanner } from '../prototype-banner';
 
 /** Motivo de la marca: pedidos de ejemplo avanzando por el riel, como un tablero de salidas. */
 const BOARD: [string, OrderStatus][] = [
@@ -57,7 +57,8 @@ export function AuthShell({
   lead,
   children,
 }: {
-  banner: ReactNode;
+  /** Aviso arriba del título (p. ej. el rótulo de prototipo). */
+  banner?: ReactNode;
   title: ReactNode;
   lead?: ReactNode;
   children: ReactNode;
@@ -74,8 +75,13 @@ export function AuthShell({
           id="contenido"
           className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-8"
         >
-          <PrototypeBanner className="text-xs">{banner}</PrototypeBanner>
-          <h1 className="mt-8 font-display text-[2rem] font-semibold leading-9 text-balance">
+          {banner}
+          <h1
+            className={cn(
+              'font-display text-[2rem] font-semibold leading-9 text-balance',
+              banner ? 'mt-8' : null,
+            )}
+          >
             {title}
           </h1>
           {lead ? <p className="mt-1 text-base text-muted-foreground">{lead}</p> : null}

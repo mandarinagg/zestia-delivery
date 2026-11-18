@@ -1,5 +1,5 @@
 /*
- * PROTOTIPO — Pedir un enlace para restablecer la contraseña (solo visual, sin API).
+ * Pedir un enlace para restablecer la contraseña (`POST /auth/forgot-password`).
  * La confirmación es la misma exista o no la cuenta: no revela qué correos están registrados.
  */
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -7,28 +7,26 @@ import { Link } from '@tanstack/react-router';
 import { ArrowLeft, MailCheck } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import type { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { AuthShell, authLinkClass } from './auth-shell';
-import { loginSchema } from './login';
-
-const forgotSchema = loginSchema.pick({ email: true });
-type ForgotValues = z.infer<typeof forgotSchema>;
+import { authApi, describeAuthError, forgotSchema, type ForgotValues } from './auth-api';
+import { FormAlert } from './form-alert';
 
 function BackToLogin() {
   return (
-    <Link to="/prototipo/ingreso" className={cn(authLinkClass, 'gap-1.5 self-start')}>
+    <Link to="/ingreso" className={cn(authLinkClass, 'gap-1.5 self-start')}>
       <ArrowLeft aria-hidden="true" className="size-4" />
       Volver al ingreso
     </Link>
   );
 }
 
-export function ForgotPasswordPrototype() {
+export function ForgotPasswordPage() {
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const statusRef = useRef<HTMLDivElement>(null);
   const {
     register,
@@ -46,7 +44,7 @@ export function ForgotPasswordPrototype() {
 
   if (sentTo) {
     return (
-      <AuthShell banner="No se envió ningún correo: es un prototipo." title="Revisá tu correo">
+      <AuthShell title="Revisá tu correo">
         <div
           ref={statusRef}
           tabIndex={-1}
@@ -66,13 +64,6 @@ export function ForgotPasswordPrototype() {
           </div>
         </div>
         <div className="mt-6 flex flex-col gap-2">
-          <Link
-            to="/prototipo/restablecer-contrasena"
-            hash="token=demo-enlace-valido"
-            className={authLinkClass}
-          >
-            Abrir el enlace de ejemplo
-          </Link>
           <button
             type="button"
             className={cn(authLinkClass, 'self-start')}
@@ -90,18 +81,20 @@ export function ForgotPasswordPrototype() {
   }
 
   return (
-    <AuthShell
-      banner="Solo visual. No se envía ningún correo."
-      title="¿Olvidaste tu contraseña?"
-      lead="Te mandamos un enlace para crear una nueva."
-    >
+    <AuthShell title="¿Olvidaste tu contraseña?" lead="Te mandamos un enlace para crear una nueva.">
+      {error ? <FormAlert>{error}</FormAlert> : null}
       <form
         noValidate
         aria-label="Recuperar contraseña"
         className="mt-6 flex flex-col gap-4"
         onSubmit={handleSubmit(async (values) => {
-          await new Promise((r) => setTimeout(r, 400));
-          setSentTo(values.email);
+          setError(null);
+          try {
+            await authApi.forgotPassword(values.email);
+            setSentTo(values.email.trim());
+          } catch (e) {
+            setError(describeAuthError(e));
+          }
         })}
       >
         <FormField label="Correo" required error={errors.email?.message}>
