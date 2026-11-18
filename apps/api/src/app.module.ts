@@ -5,6 +5,7 @@ import { EnvModule } from './config/env.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
 import { buildLoggerParams } from './logging/logger.config';
+import { AuditModule } from './modules/audit';
 import { AuthModule } from './modules/auth';
 import { MerchantsModule } from './modules/merchants';
 import { TenancyModule } from './modules/tenancy';
@@ -21,6 +22,7 @@ import { TenancyModule } from './modules/tenancy';
     TenancyModule,
     // Registra PRINCIPAL_RESOLVER (sesión por cookie) y la protección CSRF global.
     AuthModule,
+    AuditModule,
     MerchantsModule,
   ],
   controllers: [HealthController],
