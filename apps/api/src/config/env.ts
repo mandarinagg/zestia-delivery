@@ -49,7 +49,7 @@ const envSchema = z
     TRUST_PROXY_HOPS: intInRange(0, 10, 0),
     /** Orígenes del frontend aceptados en requests que cambian estado (CSRF, ver SECURITY.md). */
     APP_ORIGINS: originList.default(['http://localhost:5173']),
-    /** URL pública del frontend: base de los enlaces de los emails (reset de contraseña). */
+    /** URL pública del frontend: base de los enlaces de los emails (reset, invitaciones). */
     WEB_BASE_URL: z
       .string()
       .regex(/^https?:\/\/[^\s?#]+[^/\s?#]$/, 'debe ser una URL http(s) sin barra final')
@@ -71,6 +71,9 @@ const envSchema = z
 
     /** Reset de contraseña. */
     PASSWORD_RESET_TTL_MINUTES: intInRange(5, 120, 30),
+
+    /** Invitaciones a un tenant (#18): vencimiento del enlace. */
+    INVITATION_TTL_HOURS: intInRange(1, 720, 168),
     PASSWORD_RESET_RATE_WINDOW_MINUTES: intInRange(1, 1440, 60),
     PASSWORD_RESET_RATE_MAX_PER_ACCOUNT: intInRange(1, 100, 3),
     PASSWORD_RESET_RATE_MAX_PER_IP: intInRange(1, 10000, 20),

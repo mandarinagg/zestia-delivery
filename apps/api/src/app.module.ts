@@ -7,6 +7,7 @@ import { HealthController } from './health/health.controller';
 import { buildLoggerParams } from './logging/logger.config';
 import { AuditModule } from './modules/audit';
 import { AuthModule } from './modules/auth';
+import { MembersModule } from './modules/members';
 import { MerchantsModule } from './modules/merchants';
 import { TenancyModule } from './modules/tenancy';
 
@@ -24,6 +25,7 @@ import { TenancyModule } from './modules/tenancy';
     AuthModule,
     AuditModule,
     MerchantsModule,
+    MembersModule,
   ],
   controllers: [HealthController],
 })

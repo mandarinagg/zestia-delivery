@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   Branch,
   CreateBranch,
@@ -19,6 +14,7 @@ import type {
   UpdateMerchant,
 } from '@zestia/contracts';
 import type { Merchant, MerchantBranch } from '../../generated/prisma/client';
+import { decodeNameCursor, encodeNameCursor } from '../../http/name-cursor';
 import { AuditService, auditDiff, type AuditFieldSpec } from '../audit';
 import { MerchantsRepository, type MerchantWithCount } from './merchants.repository';
 
@@ -78,30 +74,6 @@ async function withDuplicateCheck<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-/* --- Cursor: (nombre, id) del último elemento, opaco para el cliente ------------------------ */
-
-function encodeCursor(m: Merchant): string {
-  return Buffer.from(JSON.stringify([m.name, m.id])).toString('base64url');
-}
-
-function decodeCursor(cursor: string): { name: string; id: string } {
-  try {
-    const value: unknown = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
-    if (
-      Array.isArray(value) &&
-      value.length === 2 &&
-      typeof value[0] === 'string' &&
-      typeof value[1] === 'string' &&
-      /^[0-9a-f-]{36}$/i.test(value[1])
-    ) {
-      return { name: value[0], id: value[1] };
-    }
-  } catch {
-    /* cae al error de abajo */
-  }
-  throw new BadRequestException({ statusCode: 400, code: 'INVALID_CURSOR' });
-}
-
 /* --- Vistas --------------------------------------------------------------------------------- */
 
 function toSummary(m: MerchantWithCount): MerchantSummary {
@@ -148,14 +120,14 @@ export class MerchantsService {
     const rows = await this.merchants.list({
       status: query.status,
       q: query.q || undefined,
-      after: query.cursor ? decodeCursor(query.cursor) : undefined,
+      after: query.cursor ? decodeNameCursor(query.cursor) : undefined,
       take: query.limit + 1,
     });
     const page = rows.slice(0, query.limit);
     const last = page.at(-1);
     return {
       data: page.map(toSummary),
-      nextCursor: rows.length > query.limit && last ? encodeCursor(last) : null,
+      nextCursor: rows.length > query.limit && last ? encodeNameCursor(last) : null,
     };
   }
 

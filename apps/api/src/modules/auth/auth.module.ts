@@ -36,6 +36,6 @@ import { SessionService } from './session.service';
     { provide: PRINCIPAL_RESOLVER, useExisting: SessionPrincipalResolver },
     { provide: APP_GUARD, useClass: CsrfGuard },
   ],
-  exports: [PRINCIPAL_RESOLVER],
+  exports: [PRINCIPAL_RESOLVER, PasswordHasher],
 })
 export class AuthModule {}

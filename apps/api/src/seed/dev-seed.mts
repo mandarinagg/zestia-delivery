@@ -156,7 +156,7 @@ export async function seed(databaseUrl: string, password: string): Promise<void>
     for (const m of SEED.memberships) {
       await client.query(
         `INSERT INTO memberships (id, tenant_id, user_id, role) VALUES ($1, $2, $3, $4)
-         ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, updated_at = now()`,
+         ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, status = 'ACTIVE', updated_at = now()`,
         [m.id, SEED.tenants[m.tenant]!.id, SEED.users[m.user]!.id, m.role],
       );
     }

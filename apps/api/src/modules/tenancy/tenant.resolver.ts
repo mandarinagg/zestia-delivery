@@ -22,7 +22,10 @@ export interface MembershipSummary {
   readonly role: MembershipRole;
 }
 
-/** El usuario autenticado y sus membresías (todas, incluidas las de tenants suspendidos). */
+/**
+ * El usuario autenticado y sus membresías activas (incluidas las de tenants suspendidos, que el
+ * selector muestra deshabilitadas). Las membresías deshabilitadas (#18) no se listan.
+ */
 export interface UserIdentity {
   readonly user: { readonly id: string; readonly name: string; readonly email: string };
   readonly memberships: readonly MembershipSummary[];
@@ -32,7 +35,8 @@ export interface UserIdentity {
  * Resuelve el tenant activo desde la membresía del usuario autenticado.
  *
  * La consulta corre con `app.user_id` fijado y SIN `app.tenant_id`: RLS solo deja ver las
- * membresías propias (política `memberships_self_lookup`) de tenants `ACTIVE`.
+ * membresías propias (política `memberships_self_lookup`). Cuentan solo las membresías
+ * `ACTIVE` (#18: un Admin puede deshabilitar a alguien en su empresa) de tenants `ACTIVE`.
  */
 @Injectable()
 export class TenantResolver {
@@ -49,6 +53,7 @@ export class TenantResolver {
         where: {
           userId,
           ...(activeTenantId !== null ? { tenantId: activeTenantId } : {}),
+          status: 'ACTIVE',
           tenant: { status: 'ACTIVE' },
         },
         select: { id: true, tenantId: true, role: true },
@@ -85,7 +90,7 @@ export class TenantResolver {
       });
       if (!user) return null;
       const memberships = await tx.membership.findMany({
-        where: { userId },
+        where: { userId, status: 'ACTIVE' },
         select: {
           id: true,
           role: true,
