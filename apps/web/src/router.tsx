@@ -3,11 +3,10 @@ import {
   createRoute,
   createRouter,
   lazyRouteComponent,
-  Link,
   Outlet,
 } from '@tanstack/react-router';
 import { PanelLayout } from '@/components/layout/panel-layout';
-import { buttonVariants } from '@/components/ui/button';
+import { HomePage } from '@/routes/home';
 import {
   ComercioArea,
   RepartidorArea,
@@ -15,27 +14,9 @@ import {
   TrackingArea,
 } from '@/routes/placeholders';
 
-const rootRoute = createRootRoute({ component: () => <Outlet /> });
+export { HomePage } from '@/routes/home';
 
-export function HomePage() {
-  return (
-    <main className="mx-auto flex min-h-dvh max-w-xl flex-col items-center justify-center gap-4 p-6 text-center">
-      <h1 className="text-3xl font-semibold">ZESTIA DELIVERY</h1>
-      <p className="text-muted-foreground">Plataforma en construcción (R1 — Fundaciones).</p>
-      <div className="flex flex-wrap justify-center gap-2">
-        <Link to="/panel/" className={buttonVariants()}>
-          Panel de operaciones
-        </Link>
-        <Link to="/comercio" className={buttonVariants({ variant: 'outline' })}>
-          Portal del comercio
-        </Link>
-        <Link to="/repartidor" className={buttonVariants({ variant: 'outline' })}>
-          App del repartidor
-        </Link>
-      </div>
-    </main>
-  );
-}
+const rootRoute = createRootRoute({ component: () => <Outlet /> });
 
 const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: HomePage });
 
@@ -46,21 +27,28 @@ const panelRoute = createRoute({
 });
 
 const sections = [
-  ['/', 'Despacho', 'Tablero de despacho en tiempo real.'],
-  ['pedidos', 'Pedidos', 'Alta, seguimiento y gestión de pedidos.'],
-  ['comercios', 'Comercios', 'Comercios y sus sucursales.'],
-  ['repartidores', 'Repartidores', 'Flota, disponibilidad y asignaciones.'],
-  ['zonas', 'Zonas y tarifas', 'Zonas de cobertura y tarifas.'],
-  ['incidencias', 'Incidencias', 'Problemas en entregas y su resolución.'],
-  ['efectivo', 'Efectivo', 'Cobros y rendiciones de efectivo.'],
-  ['configuracion', 'Configuración', 'Datos de la empresa, usuarios y roles.'],
+  ['/', 'Despacho', 'Tablero de despacho en tiempo real.', '/panel/prototipo/despacho'],
+  [
+    'pedidos',
+    'Pedidos',
+    'Alta, seguimiento y gestión de pedidos.',
+    '/panel/prototipo/pedido/DEMO-1043',
+  ],
+  ['comercios', 'Comercios', 'Comercios y sus sucursales.', null],
+  ['repartidores', 'Repartidores', 'Flota, disponibilidad y asignaciones.', null],
+  ['zonas', 'Zonas y tarifas', 'Zonas de cobertura y tarifas.', null],
+  ['incidencias', 'Incidencias', 'Problemas en entregas y su resolución.', null],
+  ['efectivo', 'Efectivo', 'Cobros y rendiciones de efectivo.', null],
+  ['configuracion', 'Configuración', 'Datos de la empresa, usuarios y roles.', null],
 ] as const;
 
-const sectionRoutes = sections.map(([path, title, description]) =>
+const sectionRoutes = sections.map(([path, title, description, prototype]) =>
   createRoute({
     getParentRoute: () => panelRoute,
     path,
-    component: () => <SectionPlaceholder title={title} description={description} />,
+    component: () => (
+      <SectionPlaceholder title={title} description={description} prototype={prototype} />
+    ),
   }),
 );
 
@@ -68,6 +56,61 @@ const uiRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: 'ui',
   component: lazyRouteComponent(() => import('@/routes/ui-showcase'), 'UiShowcasePage'),
+});
+
+/* Prototipos: pantallas con datos de ejemplo, sin backend (ver docs/UI.md). */
+const dispatchPrototypeRoute = createRoute({
+  getParentRoute: () => panelRoute,
+  path: 'prototipo/despacho',
+  component: lazyRouteComponent(
+    () => import('@/prototypes/despacho/dispatch-board'),
+    'DispatchPrototype',
+  ),
+});
+const orderPrototypeRoute = createRoute({
+  getParentRoute: () => panelRoute,
+  path: 'prototipo/pedido/$id',
+  component: lazyRouteComponent(
+    () => import('@/prototypes/pedido/order-detail'),
+    'OrderDetailPrototype',
+  ),
+});
+const courierPrototypeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/prototipo/repartidor',
+  component: lazyRouteComponent(
+    () => import('@/prototypes/repartidor/courier-app'),
+    'CourierPrototype',
+  ),
+});
+const trackingPrototypeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/prototipo/seguimiento',
+  component: lazyRouteComponent(
+    () => import('@/prototypes/seguimiento/tracking'),
+    'TrackingPrototype',
+  ),
+});
+const loginPrototypeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/prototipo/ingreso',
+  component: lazyRouteComponent(() => import('@/prototypes/ingreso/login'), 'LoginPrototype'),
+});
+const forgotPrototypeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/prototipo/olvide-contrasena',
+  component: lazyRouteComponent(
+    () => import('@/prototypes/ingreso/forgot-password'),
+    'ForgotPasswordPrototype',
+  ),
+});
+const resetPrototypeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/prototipo/restablecer-contrasena',
+  component: lazyRouteComponent(
+    () => import('@/prototypes/ingreso/reset-password'),
+    'ResetPasswordPrototype',
+  ),
 });
 
 const comercioRoute = createRoute({
@@ -88,10 +131,15 @@ const trackingRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
-  panelRoute.addChildren([...sectionRoutes, uiRoute]),
+  panelRoute.addChildren([...sectionRoutes, uiRoute, dispatchPrototypeRoute, orderPrototypeRoute]),
   comercioRoute,
   repartidorRoute,
   trackingRoute,
+  courierPrototypeRoute,
+  trackingPrototypeRoute,
+  loginPrototypeRoute,
+  forgotPrototypeRoute,
+  resetPrototypeRoute,
 ]);
 
 export function createAppRouter(opts?: {
