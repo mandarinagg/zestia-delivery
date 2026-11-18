@@ -1,4 +1,3 @@
-import { QueryClient } from '@tanstack/react-query';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -10,7 +9,7 @@ async function renderOrder(id: string) {
   const router = createAppRouter({
     history: createMemoryHistory({ initialEntries: [`/panel/prototipo/pedido/${id}`] }),
   });
-  render(<App router={router} queryClient={new QueryClient()} />);
+  render(<App router={router} />);
   await screen.findByRole('heading', { level: 1, name: id });
 }
 
@@ -72,7 +71,7 @@ describe('Prototipo de detalle de pedido', { timeout: 15_000 }, () => {
     const router = createAppRouter({
       history: createMemoryHistory({ initialEntries: ['/panel/prototipo/pedido/NO-EXISTE'] }),
     });
-    render(<App router={router} queryClient={new QueryClient()} />);
+    render(<App router={router} />);
     expect(await screen.findByText('No encontramos el pedido NO-EXISTE')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Ver DEMO-1043' })).toBeInTheDocument();
   });

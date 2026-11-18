@@ -1,13 +1,13 @@
-import { QueryClient } from '@tanstack/react-query';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from './App';
+import { COURIER, MERCHANT, fakeApi } from './test/fake-api';
 import { createAppRouter } from './router';
 
 function renderAt(path: string) {
   const router = createAppRouter({ history: createMemoryHistory({ initialEntries: [path] }) });
-  return render(<App router={router} queryClient={new QueryClient()} />);
+  return render(<App router={router} />);
 }
 
 describe('App', () => {
@@ -90,10 +90,11 @@ describe('App', () => {
   });
 
   it.each([
-    ['/comercio', 'Portal del comercio'],
-    ['/repartidor', 'App del repartidor'],
-    ['/t/abc123', 'Seguimiento de pedido'],
-  ])('renderiza el área %s', async (path, title) => {
+    ['/comercio', 'Portal del comercio', MERCHANT],
+    ['/repartidor', 'App del repartidor', COURIER],
+    ['/t/abc123', 'Seguimiento de pedido', null],
+  ] as const)('renderiza el área %s', async (path, title, as) => {
+    fakeApi.reset({ as });
     renderAt(path);
     expect(await screen.findByRole('heading', { name: title })).toBeInTheDocument();
   });

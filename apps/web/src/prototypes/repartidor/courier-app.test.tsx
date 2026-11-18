@@ -1,4 +1,3 @@
-import { QueryClient } from '@tanstack/react-query';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -10,7 +9,7 @@ function renderCourier() {
   const router = createAppRouter({
     history: createMemoryHistory({ initialEntries: ['/prototipo/repartidor'] }),
   });
-  return render(<App router={router} queryClient={new QueryClient()} />);
+  return render(<App router={router} />);
 }
 
 afterEach(() => resetToasts());

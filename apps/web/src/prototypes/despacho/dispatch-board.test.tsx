@@ -1,4 +1,3 @@
-import { QueryClient } from '@tanstack/react-query';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { act, configure, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -10,7 +9,7 @@ async function renderBoard() {
   const router = createAppRouter({
     history: createMemoryHistory({ initialEntries: ['/panel/prototipo/despacho'] }),
   });
-  render(<App router={router} queryClient={new QueryClient()} />);
+  render(<App router={router} />);
   await screen.findByRole('heading', { name: 'Despacho' });
 }
 

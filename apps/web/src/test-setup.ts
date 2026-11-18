@@ -9,3 +9,18 @@ globalThis.ResizeObserver ??= class {
   unobserve() {}
   disconnect() {}
 };
+
+// API falsa en memoria (src/test/fake-api.ts): cada test arranca con una sesión de Propietario.
+// Los tests de ingreso la cambian con `fakeApi.reset({ as: null })`.
+import { fakeApi } from './test/fake-api';
+import { setCsrfToken } from './lib/api';
+
+beforeEach(() => {
+  fakeApi.reset();
+  setCsrfToken(null);
+  vi.stubGlobal('fetch', fakeApi.fetch);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});

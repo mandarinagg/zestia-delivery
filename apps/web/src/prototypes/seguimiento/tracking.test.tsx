@@ -1,4 +1,3 @@
-import { QueryClient } from '@tanstack/react-query';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -10,7 +9,7 @@ function renderTracking() {
   const router = createAppRouter({
     history: createMemoryHistory({ initialEntries: ['/prototipo/seguimiento'] }),
   });
-  return render(<App router={router} queryClient={new QueryClient()} />);
+  return render(<App router={router} />);
 }
 
 describe('Prototipo de seguimiento público', () => {
