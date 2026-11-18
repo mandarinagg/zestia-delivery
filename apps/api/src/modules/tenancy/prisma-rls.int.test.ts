@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Env } from '../../config/env';
+import { loadEnv } from '../../config/env';
 import { PrismaService } from '../../database/prisma.service';
 import { TestSeeder, testDatabaseUrls } from '../../testing/test-database';
 import { TenantContextMissingError, type TenantContext } from './tenant-context';
@@ -14,13 +14,12 @@ import { runInDbScope } from './tenant-transaction';
  */
 
 function prismaFor(poolMax: number): PrismaService {
-  const env = {
+  const env = loadEnv({
     NODE_ENV: 'test',
-    PORT: 0,
     LOG_LEVEL: 'silent',
     DATABASE_URL: testDatabaseUrls().app,
-    DATABASE_POOL_MAX: poolMax,
-  } satisfies Env;
+    DATABASE_POOL_MAX: String(poolMax),
+  });
   return new PrismaService(env);
 }
 

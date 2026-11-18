@@ -15,8 +15,9 @@ export interface Principal {
 }
 
 /**
- * Contrato que la autenticación (#14) debe implementar y registrar con el token
- * `PRINCIPAL_RESOLVER`. Devuelve `null` si la request no está autenticada (→ 401).
+ * Contrato que implementa la autenticación y se registra con el token `PRINCIPAL_RESOLVER`
+ * (hoy: `SessionPrincipalResolver` del módulo auth, sesión de servidor por cookie). Devuelve
+ * `null` si la request no está autenticada (→ 401).
  */
 export interface PrincipalResolver {
   resolve(context: ExecutionContext): Principal | null | Promise<Principal | null>;
@@ -25,9 +26,8 @@ export interface PrincipalResolver {
 export const PRINCIPAL_RESOLVER = Symbol('PRINCIPAL_RESOLVER');
 
 /**
- * Implementación por defecto mientras no exista autenticación: nadie está autenticado, por lo
- * que todo endpoint con `@TenantScoped()` responde 401 (fail-closed). Los tests reemplazan este
- * provider con un resolver de prueba (src/testing), que no se compila en el build.
+ * Resolver que no autentica a nadie: todo endpoint con `@TenantScoped()` responde 401. Útil en
+ * tests de unidad o módulos armados sin autenticación. La app real usa el de `AuthModule`.
  */
 @Injectable()
 export class UnauthenticatedPrincipalResolver implements PrincipalResolver {

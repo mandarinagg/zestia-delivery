@@ -47,5 +47,21 @@ describe('rutas de la API', () => {
       scoped: true,
       exempt: false,
     });
+    // Autenticación: exenta (crea la sesión y elige el tenant); ver AuthController.
+    for (const handler of [
+      'login',
+      'logout',
+      'me',
+      'switchTenant',
+      'changePassword',
+      'forgotPassword',
+      'resetPassword',
+    ]) {
+      expect(routes).toContainEqual({
+        route: `AuthController.${handler}`,
+        scoped: false,
+        exempt: true,
+      });
+    }
   });
 });

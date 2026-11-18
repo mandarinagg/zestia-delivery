@@ -35,6 +35,8 @@ export class AuditService {
       });
       return;
     }
-    await this.db.runUnscoped((tx) => tx.auditLog.createMany({ data: [{ ...row, tenantId: null }] }));
+    await this.db.runUnscoped((tx) =>
+      tx.auditLog.createMany({ data: [{ ...row, tenantId: null }] }),
+    );
   }
 }

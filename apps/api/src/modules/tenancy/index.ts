@@ -13,4 +13,9 @@ export { TENANT_EXEMPT, TENANT_ROLES, TENANT_SCOPED } from './tenant-metadata';
 export { TenantExempt, TenantScoped, type TenantScopedOptions } from './tenant-scoped.decorator';
 export type { TenantTx } from './tenant-transaction';
 export { TenantGuard } from './tenant.guard';
-export { TenantResolver, type TenantResolution } from './tenant.resolver';
+export {
+  TenantResolver,
+  type MembershipSummary,
+  type TenantResolution,
+  type UserIdentity,
+} from './tenant.resolver';
