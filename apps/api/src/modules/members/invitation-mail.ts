@@ -7,12 +7,13 @@ import type { MailMessage } from '../mail';
  */
 export const ACCEPT_INVITATION_PATH = '/invitacion';
 
+/** Mismas etiquetas que la web (`ROLE_LABEL` de apps/web/src/lib/session.ts). */
 export const ROLE_LABEL: Record<MembershipRole, string> = {
-  OWNER: 'Propietario',
-  ADMIN: 'Administrador',
-  OPERATOR: 'Operador',
-  SUPERVISOR: 'Supervisor',
-  COURIER: 'Repartidor',
+  OWNER: 'Propietario/a',
+  ADMIN: 'Administrador/a',
+  OPERATOR: 'Operador/a',
+  SUPERVISOR: 'Supervisor/a',
+  COURIER: 'Repartidor/a',
   MERCHANT: 'Comercio',
 };
 
