@@ -48,6 +48,8 @@ export interface DataTableProps<TData> {
   /** Altura máxima del área desplazable; el encabezado queda fijo. */
   maxHeightClass?: string;
   toolbar?: ReactNode;
+  /** Clases extra por fila (p. ej. rastro de llegada de un pedido nuevo). */
+  rowClassName?: (row: TData) => string | undefined;
 }
 
 const exactMatch = (row: { getValue: (id: string) => unknown }, id: string, value: string) =>
@@ -69,6 +71,7 @@ export function DataTable<TData>({
   emptyState,
   maxHeightClass = 'max-h-[28rem]',
   toolbar,
+  rowClassName,
 }: DataTableProps<TData>) {
   const uid = useId();
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -190,7 +193,7 @@ export function DataTable<TData>({
       {selectable && selectedCount > 0 ? (
         <p
           role="status"
-          className="border-b bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground"
+          className="border-b bg-brand-soft px-3 py-1.5 text-xs font-semibold text-brand-ink"
         >
           {selectedCount} {selectedCount === 1 ? 'fila seleccionada' : 'filas seleccionadas'}
         </p>
@@ -211,7 +214,7 @@ export function DataTable<TData>({
             className="w-full border-collapse text-left text-sm"
             aria-describedby={`${uid}-count`}
           >
-            <thead className="sticky top-0 z-10 bg-muted">
+            <thead className="sticky top-0 z-10 bg-subtle shadow-[inset_0_-1px_0_var(--border)]">
               {table.getHeaderGroups().map((hg) => (
                 <tr key={hg.id}>
                   {hg.headers.map((header) => {
@@ -232,7 +235,7 @@ export function DataTable<TData>({
                               : undefined
                         }
                         className={cn(
-                          'whitespace-nowrap border-b px-3 py-2 text-xs font-semibold text-muted-foreground',
+                          'h-9 whitespace-nowrap px-3 text-xs font-semibold text-muted-foreground',
                           numeric && 'text-right',
                         )}
                       >
@@ -240,7 +243,7 @@ export function DataTable<TData>({
                           <button
                             type="button"
                             onClick={header.column.getToggleSortingHandler()}
-                            className="inline-flex items-center gap-1 rounded-sm hover:text-foreground"
+                            className="-mx-1 inline-flex items-center gap-1 rounded-xs px-1 py-0.5 hover:bg-accent hover:text-foreground"
                           >
                             {title}
                             {sorted === 'asc' ? (
@@ -272,13 +275,16 @@ export function DataTable<TData>({
                 <tr
                   key={row.id}
                   data-selected={row.getIsSelected() || undefined}
-                  className="border-b last:border-b-0 hover:bg-accent/50 data-[selected]:bg-accent"
+                  className={cn(
+                    'border-b transition-colors duration-(--dur-fast) last:border-b-0 hover:bg-subtle data-[selected]:bg-brand-soft/60 data-[selected]:shadow-[inset_3px_0_0_var(--brand)]',
+                    rowClassName?.(row.original),
+                  )}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td
                       key={cell.id}
                       className={cn(
-                        'px-3 py-1.5',
+                        'h-(--row-h) px-3 py-1',
                         cell.column.columnDef.meta?.numeric && 'text-right tabular-nums',
                       )}
                     >
@@ -330,7 +336,7 @@ export function DataTable<TData>({
             <Button
               variant="outline"
               size="icon"
-              className="size-8"
+              className="size-8 pointer-coarse:size-11"
               aria-label="Página anterior"
               disabled={!table.getCanPreviousPage()}
               onClick={() => table.previousPage()}
@@ -343,7 +349,7 @@ export function DataTable<TData>({
             <Button
               variant="outline"
               size="icon"
-              className="size-8"
+              className="size-8 pointer-coarse:size-11"
               aria-label="Página siguiente"
               disabled={!table.getCanNextPage()}
               onClick={() => table.nextPage()}

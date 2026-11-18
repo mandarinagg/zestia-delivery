@@ -9,7 +9,7 @@ export function Label({
   ...props
 }: LabelHTMLAttributes<HTMLLabelElement> & { required?: boolean }) {
   return (
-    <label className={cn('text-sm font-medium leading-none', className)} {...props}>
+    <label className={cn('text-[0.8125rem] font-semibold leading-none', className)} {...props}>
       {children}
       {required ? (
         <span aria-hidden="true" className="ml-0.5 text-destructive">
@@ -45,7 +45,13 @@ export function FormField({ label, children, required, help, error, className }:
   const uid = useId();
   const helpId = `${uid}-help`;
   const errorId = `${uid}-error`;
-  const describedBy = [help ? helpId : null, error ? errorId : null].filter(Boolean).join(' ');
+  const describedBy = [
+    children.props['aria-describedby'],
+    help ? helpId : null,
+    error ? errorId : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
@@ -65,7 +71,7 @@ export function FormField({ label, children, required, help, error, className }:
         </p>
       ) : null}
       {error ? (
-        <p id={errorId} role="alert" className="text-xs font-medium text-destructive">
+        <p id={errorId} role="alert" className="text-xs font-semibold text-destructive">
           {error}
         </p>
       ) : null}

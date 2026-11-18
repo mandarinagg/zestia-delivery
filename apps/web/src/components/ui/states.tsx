@@ -7,13 +7,21 @@ export function Skeleton({ className, ...props }: HTMLAttributes<HTMLDivElement>
   return (
     <div
       aria-hidden="true"
-      className={cn('animate-pulse rounded-md bg-muted', className)}
+      className={cn('animate-pulse rounded-sm bg-muted motion-reduce:animate-none', className)}
       {...props}
     />
   );
 }
 
-const box = 'flex flex-col items-center justify-center gap-3 px-6 py-12 text-center';
+/**
+ * Envuelve el contenido que reemplaza a un esqueleto: aparece con un fundido corto (180 ms)
+ * en vez de "saltar". Sin escalonar ni deslizar: el contenido ocupa el lugar del esqueleto.
+ */
+export function Reveal({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn('animate-fade-in', className)} {...props} />;
+}
+
+const box = 'flex flex-col items-center justify-center gap-3 px-6 py-10 text-center';
 
 export interface EmptyStateProps {
   title: string;
@@ -27,11 +35,14 @@ export interface EmptyStateProps {
 export function EmptyState({ title, description, action, icon, className }: EmptyStateProps) {
   return (
     <div className={cn(box, className)}>
-      <span aria-hidden="true" className="rounded-full bg-muted p-3 text-muted-foreground">
-        {icon ?? <Inbox className="size-6" />}
+      <span
+        aria-hidden="true"
+        className="grid size-11 place-items-center rounded-md border border-dashed border-input text-muted-foreground"
+      >
+        {icon ?? <Inbox className="size-5" />}
       </span>
       <div className="flex max-w-sm flex-col gap-1">
-        <p className="text-base font-semibold">{title}</p>
+        <p className="font-display text-lg font-semibold leading-6">{title}</p>
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
       </div>
       {action}
@@ -57,12 +68,12 @@ export function ErrorState({
     <div role="alert" className={cn(box, className)}>
       <span
         aria-hidden="true"
-        className="rounded-full bg-status-danger-bg p-3 text-status-danger-fg"
+        className="grid size-11 place-items-center rounded-md bg-tone-red-bg text-tone-red-fg"
       >
-        <AlertTriangle className="size-6" />
+        <AlertTriangle className="size-5" />
       </span>
       <div className="flex max-w-sm flex-col gap-1">
-        <p className="text-base font-semibold">{title}</p>
+        <p className="font-display text-lg font-semibold leading-6">{title}</p>
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
       {onRetry ? (
@@ -96,12 +107,12 @@ export function TableSkeleton({ rows = 6, columns = 5 }: { rows?: number; column
       role="status"
       aria-busy="true"
       aria-label="Cargando tabla"
-      className="flex flex-col gap-2 p-3"
+      className="flex flex-col divide-y"
     >
       {Array.from({ length: rows }, (_, r) => (
-        <div key={r} className="flex gap-3">
+        <div key={r} className="flex h-(--row-h) items-center gap-4 px-3">
           {Array.from({ length: columns }, (_, c) => (
-            <Skeleton key={c} className="h-6 flex-1" />
+            <Skeleton key={c} className={cn('h-3', c === 0 ? 'w-20' : 'flex-1')} />
           ))}
         </div>
       ))}
