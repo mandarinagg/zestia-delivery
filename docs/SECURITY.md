@@ -48,7 +48,7 @@ Defensa en capas, sin cookie de CSRF:
 3. **Token sincronizado** en el header `X-CSRF-Token` en toda mutación que lleve cookie de sesión: `HMAC-SHA256(token de sesión, "zestia-csrf-v1")`. Está atado a la sesión (cambia al rotarla), no se guarda y se compara en tiempo constante. Lo devuelven `login`, `me`, `switch-tenant` y `change-password`. Exentos con `@SkipCsrfToken(motivo)` (siguen pasando la verificación de origen): `login`, `forgot-password` y `reset-password`, que no actúan sobre una sesión existente.
 4. Los cuerpos deben ser `application/json` (`415` si no): un formulario HTML de otro sitio no puede mandar JSON sin preflight CORS.
 
-No hay CORS habilitado: el frontend debe servirse del mismo sitio (en desarrollo, un proxy de Vite; ver #20).
+No hay CORS habilitado: el frontend se sirve desde el mismo origen que la API. En desarrollo, Vite reenvía `/api` (`apps/web/vite.config.ts`); en producción lo hará el proxy inverso. La web nunca lee la cookie: guarda el `csrfToken` solo en memoria y lo manda en `X-CSRF-Token`. Después de ingresar, solo redirige a rutas internas (`safeRedirect`, contra redirecciones abiertas).
 
 ### Rate limiting (login, reset y cambio de contraseña)
 

@@ -18,7 +18,11 @@ Lista honesta de lo que el sistema **no** hace (o aún no). Se actualiza en cada
 ## Estado actual del repositorio
 
 - R1 en curso: monorepo (#13), multi-tenancy con RLS (#15) y autenticación con sesiones de servidor (#14).
-- **Autenticación (#14), solo backend:** la UI de login, selector de empresa y reset es #20. Sin CORS: el frontend tiene que servirse del mismo sitio que la API (en desarrollo, proxy de Vite; todavía no configurado).
+- **Autenticación en la web:** ingreso, selector de empresa, cambio de empresa, cierre de sesión, olvidé y restablecer contraseña conectados a la API. Todavía no hay:
+  - pantalla de cambio de contraseña;
+  - "mis sesiones";
+  - un aviso antes de que venza la sesión por inactividad (al vencer, el próximo pedido manda al ingreso).
+- Sin CORS: la web y la API se sirven desde el mismo origen. En desarrollo lo resuelve el proxy de Vite; en producción tiene que hacerlo el proxy inverso.
 - Sin 2FA (TOTP), sin verificación de email, sin alta/invitación de usuarios ni alta de tenants (onboarding): por ahora los usuarios solo se crean con `pnpm db:seed` (desarrollo).
 - Sin listado/cierre de "mis sesiones" ni revocación de sesiones por un admin. Las sesiones vencidas o revocadas quedan en `sessions` (no hay job de limpieza todavía; no afectan la seguridad).
 - Al deshabilitar un usuario (`status = DISABLED`) sus sesiones dejan de validar en la próxima request, pero no hay un endpoint de administración para hacerlo.
@@ -28,7 +32,7 @@ Lista honesta de lo que el sistema **no** hace (o aún no). Se actualiza en cada
   - `recordChange()` y `auditDiff()` están listos, pero todavía no hay acciones de negocio que los usen: los primeros son el CRUD de comercios (#19) y la gestión de usuarios (#18).
   - Sin política de retención ni purga (depende de la consulta legal, #11). No se guarda la IP.
   - Los intentos denegados por permiso (403) no se auditan.
-  - La vista web llega cuando se conecte el frontend a la API.
+  - La vista web de la auditoría todavía no está (la API sí).
 - Los errores de la API usan `{ statusCode, code }`, todavía no el formato RFC 9457 de `API_CONTRACTS.md`.
 - El único endpoint de negocio es `GET /api/v1/merchants/:id` (lectura mínima para probar el aislamiento). El CRUD de comercios es #19.
 - `users` y `tenants` tienen RLS y la API solo puede leerlos: el alta de tenants (onboarding de plataforma) y el alta de usuarios necesitan su propio camino. El login por email usa funciones `SECURITY DEFINER` acotadas (#14).

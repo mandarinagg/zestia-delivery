@@ -8,10 +8,11 @@ se ve y se prueba ahí, con datos de ejemplo.
 
 ```bash
 pnpm install
-pnpm --filter @zestia/web dev          # http://localhost:5173 (no necesita API ni Docker)
+pnpm infra:up && pnpm db:migrate && pnpm db:seed   # Postgres + Mailpit y datos de ejemplo
+pnpm dev                                           # API :3000 · web http://localhost:5173
 ```
 
-Si el 5173 está ocupado: `pnpm --filter @zestia/web exec vite --port 5174`.
+El panel exige iniciar sesión (usuarios del seed, contraseña `SEED_USER_PASSWORD`). Vite reenvía `/api` a la API (`API_PROXY_TARGET` en `apps/web/.env`): web y API comparten origen, sin CORS. Si el 5173 está ocupado, cambiá el puerto y agregalo a `APP_ORIGINS` de la API (si no, el control CSRF por `Origin` rechaza las mutaciones).
 
 | Ruta | Qué es |
 | --- | --- |
@@ -20,10 +21,18 @@ Si el 5173 está ocupado: `pnpm --filter @zestia/web exec vite --port 5174`.
 | `/panel/prototipo/pedido/DEMO-1043` | **Prototipo.** Detalle de pedido. |
 | `/prototipo/repartidor` | **Prototipo.** App del repartidor (PWA, mobile-first). |
 | `/prototipo/seguimiento` | **Prototipo.** Seguimiento público que ve el cliente final. |
-| `/prototipo/ingreso` | **Prototipo.** Ingreso y selector de empresa. |
-| `/prototipo/olvide-contrasena` | **Prototipo.** Pedir enlace para restablecer contraseña. |
-| `/prototipo/restablecer-contrasena#token=demo-enlace-valido` | **Prototipo.** Crear contraseña nueva (token en el fragmento). |
-| `/panel/*`, `/comercio`, `/repartidor`, `/t/:token` | Rutas reales, hoy con placeholders que enlazan a su prototipo. |
+| `/ingreso`, `/ingreso/empresa` | **Real.** Ingreso y selector de empresa (API `/auth`). |
+| `/olvide-contrasena`, `/restablecer-contrasena#token=…` | **Real.** Pedir el enlace y crear contraseña nueva (el enlace llega por email; en local, a Mailpit). |
+| `/panel/*`, `/comercio`, `/repartidor` | Rutas reales **con sesión**: sin sesión van a `/ingreso`; cada rol va a su área. Las secciones son placeholders que enlazan a su prototipo. |
+| `/t/:token` | Seguimiento público (placeholder). |
+
+### Sesión en la web
+
+- `src/lib/api.ts`: cliente HTTP (`/api/v1`, `credentials: 'same-origin'`). Manda `X-CSRF-Token` en toda mutación; el token vive en memoria y se renueva con cada respuesta de sesión. Errores como `ApiError { status, code }` o `NetworkError`.
+- `src/lib/session.ts`: `GET /auth/me` en React Query (`['session']`), `useSession()`, `useCan(permiso)` (matriz de `@zestia/auth`; solo para mostrar u ocultar) y `homeFor(rol)`.
+- Las rutas protegidas verifican la sesión en `beforeLoad` (`router.tsx`). Un 401 de cualquier llamada limpia la sesión y vuelve a `/ingreso?redirect=…`. `safeRedirect()` solo acepta rutas internas.
+- La navegación esconde lo que el rol no puede usar (`permission` en `nav.ts`).
+- Tests: `src/test/fake-api.ts` emula `/api/v1/auth` con el mismo contrato (CSRF incluido). `test-setup.ts` arranca cada test con una sesión de Propietario.
 
 Los prototipos usan datos **obviamente falsos** (`DEMO-1043`, "Lomitería Demo", "Envíos Ejemplo
 S.A."), llevan el rótulo **Prototipo** arriba (`PrototypeBanner`, `role="note"`) y no llaman a la

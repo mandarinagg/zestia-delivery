@@ -1,6 +1,6 @@
 # Handoff — estado del trabajo
 
-> Última actualización: **2026-11-18** (tarde: #16 y #17). Punto de partida para la próxima sesión (humana o de agentes).
+> Última actualización: **2026-11-18** (tarde: #16, #17 y login web). Punto de partida para la próxima sesión (humana o de agentes).
 > Leer junto con [`CLAUDE.md`](../CLAUDE.md), [`ROADMAP.md`](ROADMAP.md) y [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
 
 ## Resumen
@@ -26,7 +26,8 @@ Release **R1 — Fundaciones** en curso. Ya están el monorepo, la multi-tenancy
 | `feat/20-ui-redesign` | Sistema de diseño "Riel" + prototipos | `feat/20-ui-base` |
 | **`feat/r1-integracion`** | `feat/14` + `feat/20-ui-redesign` + este handoff | `feat/14` |
 | `feat/16-permisos` | Matriz rol → permiso, `@RequirePermission()` (#16) | `feat/r1-integracion` |
-| **`feat/17-auditoria`** | Auditoría con antes/después y consulta (#17). **Rama más reciente: incluye todo lo anterior** | `feat/16-permisos` |
+| `feat/17-auditoria` | Auditoría con antes/después y consulta (#17) | `feat/16-permisos` |
+| **`feat/14-login-web`** | Login real en la web, sesión, guardas de ruta, cambio de empresa, logout. **Rama más reciente: incluye todo lo anterior** | `feat/17-auditoria` |
 
 Flujo acordado: commits locales en ramas `feat/…`. El dueño decide cuándo pushear y cuándo mergear a `main`.
 
@@ -60,6 +61,8 @@ pnpm dev             # API :3000 · web :5173
 
 - Si venís de una base creada con `chore/13`, recreá el volumen con `docker compose -f infra/docker/docker-compose.yml down -v`.
 - Mailpit está en <http://localhost:8025>.
+- **Puertos ocupados** (otro proyecto usando 5432, 1025 u 8025): cambiá `POSTGRES_PORT`, `MAILPIT_SMTP_PORT` y `MAILPIT_UI_PORT` en `infra/docker/.env`, y los mismos puertos en `DATABASE_URL`, `MIGRATION_DATABASE_URL`, `SEED_DATABASE_URL` y `SMTP_PORT` de `apps/api/.env`. En esta máquina se usaron 55432, 11025 y 18025.
+- Para ingresar usá los usuarios del seed (por ejemplo `ana@zestia.test`) con la contraseña `SEED_USER_PASSWORD` de `apps/api/.env`.
 - Para ver la UI:
   - Guía viva del sistema de diseño: `/panel/ui`.
   - Prototipos:
@@ -67,9 +70,6 @@ pnpm dev             # API :3000 · web :5173
     - `/panel/prototipo/pedido/DEMO-1043`
     - `/prototipo/repartidor`
     - `/prototipo/seguimiento`
-    - `/prototipo/ingreso`
-    - `/prototipo/olvide-contrasena`
-    - `/prototipo/restablecer-contrasena#token=demo-enlace-valido`
 
 ## Decisiones tomadas en esta sesión
 
@@ -87,11 +87,12 @@ pnpm dev             # API :3000 · web :5173
 
 1. ~~**#16 Permisos.**~~ Hecho en `feat/16-permisos`: matriz en `packages/auth` (detalle en [`SECURITY.md`](SECURITY.md#roles-y-permisos-issue-16)), `@RequirePermission()` obligatorio en cada ruta de tenant. Roles alineados con la DB (`OWNER, ADMIN, OPERATOR, SUPERVISOR, COURIER, MERCHANT`). Falta alinear el prototipo de login, que sigue con `admin, operator, merchant, courier`, cuando se conecte a la API (paso 3).
 2. ~~**#17 Auditoría.**~~ Backend hecho en `feat/17-auditoria`. Columna `changes`, más `AuditService.recordChange()` y `auditDiff()`; detalle en [`SECURITY.md`](SECURITY.md#auditoría-audit_logs). Consulta con `GET /api/v1/audit-logs`. Se eligió registrar desde el servicio, en la misma transacción, en lugar de un interceptor genérico: un interceptor no conoce el estado anterior de la entidad. Falta la vista web.
-3. **Conectar el frontend a la API**, es decir, pasar el login de prototipo a real.
-   - Configurar el proxy de Vite (no hay CORS: misma origin).
-   - Usar `credentials: 'include'` y mandar `X-CSRF-Token` en cada mutación.
-   - El selector de empresa se arma con `memberships` y `activeTenantId`.
-   - Contratos en `packages/contracts/src/auth.ts`.
+3. ~~**Conectar el frontend a la API.**~~ Hecho en `feat/14-login-web`:
+   - ingreso, selector y cambio de empresa, logout, olvidé y restablecer contraseña;
+   - proxy de Vite, CSRF y guardas por rol;
+   - verificado de punta a punta contra la API real.
+
+   Detalle en [`UI.md`](UI.md#sesión-en-la-web). Faltan la vista de auditoría y el cambio de contraseña en la web.
 4. **#19 Comercios y sucursales**, con `expectTenantIsolation` en cada endpoint.
 5. **#18 Usuarios e invitaciones**, que necesita el camino de alta de usuarios: hoy solo existe el seed.
 

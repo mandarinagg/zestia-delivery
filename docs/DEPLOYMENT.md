@@ -12,7 +12,8 @@
 
 ## Principios
 
-- Imagen Docker única para `api` (+ worker en el mismo binario con flag), `web` como estáticos en CDN.
+- Imagen Docker única para `api` (+ worker en el mismo binario con flag), `web` como estáticos.
+- **Mismo origen:** web y API bajo el mismo dominio. El proxy inverso sirve los estáticos y reenvía `/api` a la API. No hay CORS, y la cookie `__Host-` y el control CSRF por `Origin` dependen de eso. `APP_ORIGINS` y `WEB_BASE_URL` apuntan a ese dominio y `TRUST_PROXY_HOPS` es la cantidad de proxies.
 - Migraciones Prisma ejecutadas como paso previo y compatibles hacia atrás (expand/contract).
 - Variables por entorno en el gestor de secretos del proveedor.
 - Healthchecks `/health/live`, `/health/ready`.

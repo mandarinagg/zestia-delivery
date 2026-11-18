@@ -79,7 +79,7 @@ Verificación rápida:
 - API + DB: <http://localhost:3000/health/ready> → `{"status":"ok","checks":{"database":"ok"}}`
 - Web: <http://localhost:5173>
 - Guía de UI (sistema "Riel": tokens, estados, movimiento, componentes; datos de ejemplo): <http://localhost:5173/panel/ui>. Funciona sin la API ni Docker: `pnpm --filter @zestia/web dev`.
-- Prototipos navegables, rotulados y con datos de ejemplo (enlazados desde la guía): despacho en vivo (`/panel/prototipo/despacho`), detalle de pedido (`/panel/prototipo/pedido/DEMO-1043`), app del repartidor (`/prototipo/repartidor`), seguimiento público (`/prototipo/seguimiento`), ingreso y empresa (`/prototipo/ingreso`), recuperar y restablecer contraseña (`/prototipo/olvide-contrasena`, `/prototipo/restablecer-contrasena`). Detalle en [`docs/UI.md`](docs/UI.md).
+- Prototipos navegables, rotulados y con datos de ejemplo (enlazados desde la guía): despacho en vivo (`/panel/prototipo/despacho`), detalle de pedido (`/panel/prototipo/pedido/DEMO-1043`), app del repartidor (`/prototipo/repartidor`), seguimiento público (`/prototipo/seguimiento`). Ingreso real conectado a la API: `/ingreso`, selector de empresa, `/olvide-contrasena` y `/restablecer-contrasena`. Detalle en [`docs/UI.md`](docs/UI.md).
 - Mailpit (correos de desarrollo): <http://localhost:8025>
 - Postgres: `localhost:5432` (claves en `infra/docker/.env`). Roles:
   - `zestia_app` — el único que usa la API (`DATABASE_URL`). Sin `BYPASSRLS`, no es dueño de tablas: la API se niega a arrancar con un rol privilegiado.
