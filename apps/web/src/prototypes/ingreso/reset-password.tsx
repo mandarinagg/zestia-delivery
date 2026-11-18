@@ -18,8 +18,8 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { AuthShell, PasswordField, authLinkClass } from './auth-shell';
 
-/** Largo mínimo provisorio; se alinea con la política que defina #14. */
-export const MIN_PASSWORD = 10;
+/** Largo mínimo: igual a la política del backend (#14: 12–128 caracteres). */
+export const MIN_PASSWORD = 12;
 export const EXPIRED_DEMO_TOKEN = 'demo-enlace-vencido';
 
 export function tokenFromHash(hash: string): string | null {

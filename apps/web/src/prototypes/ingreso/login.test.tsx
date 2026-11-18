@@ -111,9 +111,9 @@ describe('Prototipos de recuperación de contraseña', () => {
     await user.type(nueva, 'corta');
     await user.type(screen.getByLabelText(/^Repetir contraseña/), 'otra');
     await user.click(screen.getByRole('button', { name: 'Guardar contraseña' }));
-    expect(await screen.findByText('Usá al menos 10 caracteres.')).toBeInTheDocument();
+    expect(await screen.findByText('Usá al menos 12 caracteres.')).toBeInTheDocument();
     expect(screen.getByText('Las contraseñas no coinciden.')).toBeInTheDocument();
-    expect(nueva).toHaveAccessibleDescription(/Al menos 10 caracteres/);
+    expect(nueva).toHaveAccessibleDescription(/Al menos 12 caracteres/);
 
     await user.clear(nueva);
     await user.type(nueva, 'una frase larga');
