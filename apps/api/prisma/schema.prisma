@@ -63,6 +63,7 @@ model Tenant {
 
   memberships Membership[]
   merchants   Merchant[]
+  branches    MerchantBranch[]
   sessions    Session[]
 
   @@map("tenants")
@@ -117,12 +118,40 @@ model Merchant {
   updatedAt DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime?      @map("deleted_at") @db.Timestamptz(3)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  branches MerchantBranch[]
 
   // (tenant_id, id) permite FKs compuestas desde tablas hijas: una sucursal no puede
   // apuntar a un comercio de otro tenant.
+  // Además (migración *_merchant_branches): teléfono E.164, RUC `n-d`, archivado ⇔ deleted_at,
+  // y nombre único (sin mayúsculas) entre los vigentes del tenant.
   @@unique([tenantId, id])
+  @@index([tenantId, status, name, id], map: "merchants_tenant_status_name_idx")
   @@map("merchants")
+}
+
+/// Sucursal de retiro de un comercio (#19). Archivar = `deletedAt`. `openingHours` lo valida la
+/// API: { "mon": [{ "from": "08:00", "to": "12:00" }], … }.
+model MerchantBranch {
+  id           String    @id @default(dbgenerated("app_uuid_v7()")) @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  merchantId   String    @map("merchant_id") @db.Uuid
+  name         String
+  address      String
+  neighborhood String
+  city         String
+  references   String?
+  phone        String?
+  openingHours Json      @default("{}") @map("opening_hours")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  merchant Merchant @relation(fields: [tenantId, merchantId], references: [tenantId, id], onDelete: Restrict, onUpdate: NoAction, map: "merchant_branches_merchant_fkey")
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "merchant_branches_tenant_fkey")
+
+  @@unique([tenantId, id])
+  @@map("merchant_branches")
 }
 
 // --- Autenticación (issue #14) -------------------------------------------------------------
