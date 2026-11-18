@@ -52,6 +52,22 @@ export class TenantDb {
     );
   }
 
+  /**
+   * Transacción SIN tenant ni usuario (`app.tenant_id` y `app.user_id` vacíos): RLS deja ver
+   * cero filas de toda tabla de tenant y solo permite insertar filas sin tenant (p. ej. la
+   * auditoría de login). Para lo previo a elegir tenant: las funciones `SECURITY DEFINER` de
+   * autenticación y la auditoría pre-tenant. No da acceso a ningún dato de negocio.
+   *
+   * El cliente se pasa a `fn` (no queda en `db.tx`). No se puede anidar en un contexto de
+   * tenant: ahí se usa `db.tx` directamente.
+   */
+  runUnscoped<T>(fn: (tx: TenantTx) => Promise<T>): Promise<T> {
+    if (this.active) {
+      throw new Error('Hay un contexto de tenant activo; usá db.tx en lugar de runUnscoped().');
+    }
+    return runInDbScope(this.prisma, { tenantId: null, userId: null }, fn);
+  }
+
   private current(): TenantScope {
     const scope = scopeStorage.getStore();
     if (!scope) throw new TenantContextMissingError();
