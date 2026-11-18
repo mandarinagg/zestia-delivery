@@ -41,6 +41,13 @@ enum MembershipRole {
   @@map("membership_role")
 }
 
+enum MembershipStatus {
+  ACTIVE
+  DISABLED
+
+  @@map("membership_status")
+}
+
 enum MerchantStatus {
   ACTIVE
   SUSPENDED
@@ -64,6 +71,7 @@ model Tenant {
   memberships Membership[]
   merchants   Merchant[]
   branches    MerchantBranch[]
+  invitations Invitation[]
   sessions    Session[]
 
   @@map("tenants")
@@ -84,25 +92,53 @@ model User {
   credential          UserCredential?
   sessions            Session[]
   passwordResetTokens PasswordResetToken[]
+  invitationsSent     Invitation[]         @relation("InvitationInviter")
+  invitationsAccepted Invitation[]         @relation("InvitationAcceptedUser")
 
   @@map("users")
 }
 
 /// Une usuario ↔ tenant ↔ rol. Es la fuente del tenant activo de una request.
 model Membership {
-  id        String         @id @default(uuid(7)) @db.Uuid
-  tenantId  String         @map("tenant_id") @db.Uuid
-  userId    String         @map("user_id") @db.Uuid
+  id        String           @id @default(uuid(7)) @db.Uuid
+  tenantId  String           @map("tenant_id") @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
   role      MembershipRole
-  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  status    MembershipStatus @default(ACTIVE)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@unique([tenantId, userId])
   @@index([userId])
+  @@index([tenantId, role, status])
   @@map("memberships")
+}
+
+/// Invitación a un tenant (#18). Solo se guarda el SHA-256 del token. Una sola abierta por
+/// email y tenant (índice parcial en la migración). Se acepta vía `auth_invitation_accept`.
+model Invitation {
+  id             String         @id @default(dbgenerated("app_uuid_v7()")) @db.Uuid
+  tenantId       String         @map("tenant_id") @db.Uuid
+  email          String
+  role           MembershipRole
+  tokenHash      Bytes          @unique @map("token_hash")
+  invitedById    String?        @map("invited_by") @db.Uuid
+  expiresAt      DateTime       @map("expires_at") @db.Timestamptz(3)
+  acceptedAt     DateTime?      @map("accepted_at") @db.Timestamptz(3)
+  acceptedUserId String?        @map("accepted_user_id") @db.Uuid
+  revokedAt      DateTime?      @map("revoked_at") @db.Timestamptz(3)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  invitedBy    User?  @relation("InvitationInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+  acceptedUser User?  @relation("InvitationAcceptedUser", fields: [acceptedUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@map("invitations")
 }
 
 /// Comercio asociado. Tabla de negocio mínima de R1 para probar el aislamiento de punta a punta;
