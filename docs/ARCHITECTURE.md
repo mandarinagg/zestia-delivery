@@ -1,6 +1,6 @@
 # Arquitectura
 
-> Estado: **Propuesta** — pendiente de aprobación (issue de decisión de stack). Decisiones en [`DECISIONS.md`](DECISIONS.md).
+> Estado: **Aprobada** (ADR 001–012, 2026-11-17). Hosting pendiente (ADR-013). Decisiones en [`DECISIONS.md`](DECISIONS.md).
 
 ## Vista general
 
