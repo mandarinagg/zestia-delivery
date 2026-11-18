@@ -103,6 +103,8 @@ describe('rutas de la API', () => {
       routes.filter((r) => r.scoped).map((r) => [r.route, r.permissions]),
     );
     expect(inventory).toEqual({
+      'AuditLogsController.list': ['audit:read'],
+      'AuditLogsController.findOne': ['audit:read'],
       'MerchantsController.findOne': ['merchants:read'],
     });
   });

@@ -8,6 +8,7 @@ import type { Permission, Role } from '@zestia/auth';
 import { describe, expect, it } from 'vitest';
 import type { PrincipalResolver } from './principal';
 import { RequirePermission } from './require-permission.decorator';
+import { getRequestTenantContext } from './tenant-request';
 import { TenantGuard } from './tenant.guard';
 import type { TenantResolver } from './tenant.resolver';
 
@@ -27,11 +28,15 @@ function guardFor(role: Role): TenantGuard {
   return new TenantGuard(principals, tenants, new Reflector());
 }
 
-function contextFor(handler: () => unknown, controller: object = class {}): ExecutionContext {
+function contextFor(
+  handler: () => unknown,
+  controller: object = class {},
+  request: object = {},
+): ExecutionContext {
   return {
     getHandler: () => handler,
     getClass: () => controller,
-    switchToHttp: () => ({ getRequest: () => ({}) }),
+    switchToHttp: () => ({ getRequest: () => request }),
   } as unknown as ExecutionContext;
 }
 
@@ -74,6 +79,18 @@ describe('TenantGuard: permisos', () => {
     class Controller {}
     const ctx = contextFor(handlerWith('merchants:read'), Controller);
     await expect(guardFor('OPERATOR').canActivate(ctx)).resolves.toBe(true);
+  });
+});
+
+describe('TenantGuard: contexto', () => {
+  it('guarda el contexto con el id de la request (para la auditoría)', async () => {
+    const request = { id: 'req-abc' };
+    await guardFor('ADMIN').canActivate(contextFor(handlerWith('audit:read'), class {}, request));
+    expect(getRequestTenantContext(request)).toEqual({
+      ...IDS,
+      role: 'ADMIN',
+      correlationId: 'req-abc',
+    });
   });
 });
 

@@ -126,6 +126,41 @@ export class TestSeeder {
     return id;
   }
 
+  /**
+   * Fila de auditoría (como superusuario, sin pasar por la API). `occurredAt` permite probar
+   * filtros por fecha; el id es UUID v7 generado por la DB, así que el orden es el de inserción.
+   */
+  async auditLog(
+    tenantId: string | null,
+    row: {
+      action?: string;
+      actorId?: string | null;
+      entityType?: string | null;
+      entityId?: string | null;
+      changes?: Record<string, unknown> | null;
+      occurredAt?: Date;
+    } = {},
+  ): Promise<string> {
+    const [inserted] = await this.query<{ id: string }>(
+      `INSERT INTO audit_logs
+         (tenant_id, actor_type, actor_id, action, entity_type, entity_id, changes, occurred_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, coalesce($8, now()))
+       RETURNING id`,
+      [
+        tenantId,
+        row.actorId ? 'USER' : 'SYSTEM',
+        row.actorId ?? null,
+        row.action ?? 'test.event',
+        row.entityType ?? null,
+        row.entityId ?? null,
+        row.changes ? JSON.stringify(row.changes) : null,
+        row.occurredAt ?? null,
+      ],
+    );
+    if (!inserted) throw new Error('auditLog: INSERT sin fila');
+    return inserted.id;
+  }
+
   /** Tenant con un usuario miembro (rol dado). */
   async tenantWithMember(
     role: MembershipRoleName = 'OWNER',

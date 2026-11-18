@@ -18,6 +18,20 @@ describe('assertSafeAuditEvent', () => {
     expect(() => assertSafeAuditEvent(base)).not.toThrow();
   });
 
+  it('acepta cambios planos y datos sensibles marcados como redacted', () => {
+    expect(() =>
+      assertSafeAuditEvent({
+        ...base,
+        changes: {
+          name: { from: 'A', to: 'B' },
+          deletedAt: { from: null, to: '2026-11-18T15:00:00.000Z' },
+          phone: { redacted: true },
+          emailVerified: { redacted: true },
+        },
+      }),
+    ).not.toThrow();
+  });
+
   it.each([
     ['acción sin dominio', { ...base, action: 'login' }],
     ['acción con mayúsculas', { ...base, action: 'Auth.Login' }],
@@ -31,6 +45,13 @@ describe('assertSafeAuditEvent', () => {
     ['metadata anidada', { ...base, metadata: { nested: { a: 1 } as unknown as string } }],
     ['número no finito', { ...base, metadata: { n: Number.NaN } }],
     ['actor USER con id inválido', { ...base, actor: { type: 'USER', id: 'a b' } as const }],
+    ['cambio de dato sensible en claro', { ...base, changes: { phone: { from: '1', to: '2' } } }],
+    ['email en un cambio', { ...base, changes: { name: { from: 'a', to: 'ana@example.com' } } }],
+    ['cambio anidado', { ...base, changes: { name: { from: { a: 1 }, to: 'b' } } }],
+    ['cambio sin from/to', { ...base, changes: { name: { to: 'b' } } }],
+    ['redacted falso', { ...base, changes: { phone: { redacted: false } } }],
+    ['campo inválido', { ...base, changes: { 'Bad Field': { from: 'a', to: 'b' } } }],
+    ['changes como array', { ...base, changes: [] }],
   ])('rechaza %s', (_label, event) => {
     expect(() => assertSafeAuditEvent(event as AuditEvent)).toThrow(UnsafeAuditEventError);
   });
