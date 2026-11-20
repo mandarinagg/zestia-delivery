@@ -16,10 +16,10 @@ export interface NavItem {
   label: string;
   icon: LucideIcon;
   /**
-   * Permiso para ver la sección. Sin permiso: cualquier rol del panel (las secciones de R2
-   * todavía no tienen permisos propios). Solo esconde: la API decide.
+   * Permiso para ver la sección; con varios, alcanza con uno. Sin permiso: cualquier rol del
+   * panel (las secciones de R2 todavía no tienen permisos propios). Solo esconde: la API decide.
    */
-  permission?: Permission;
+  permission?: Permission | readonly Permission[];
 }
 
 /** Navegación del panel, en grupos separados por una línea (sin rótulos: el grupo se lee solo). */
@@ -40,7 +40,7 @@ export const PANEL_NAV_GROUPS: NavItem[][] = [
       to: '/panel/configuracion',
       label: 'Configuración',
       icon: Settings,
-      permission: 'users:read',
+      permission: ['users:read', 'audit:read'],
     },
   ],
 ];
@@ -50,7 +50,11 @@ export const PANEL_NAV: NavItem[] = PANEL_NAV_GROUPS.flat();
 /** Grupos de navegación que el rol puede ver (los grupos vacíos se omiten). */
 export function navGroupsFor(role: Role | null): NavItem[][] {
   return PANEL_NAV_GROUPS.map((group) =>
-    group.filter((item) => !item.permission || (role !== null && can(role, item.permission))),
+    group.filter((item) => {
+      if (!item.permission) return true;
+      const any = typeof item.permission === 'string' ? [item.permission] : item.permission;
+      return role !== null && any.some((p) => can(role, p));
+    }),
   ).filter((group) => group.length > 0);
 }
 

@@ -7,10 +7,11 @@ import {
   Outlet,
   redirect,
 } from '@tanstack/react-router';
-import { can } from '@zestia/auth';
+import { type Permission, can } from '@zestia/auth';
 import { z } from 'zod';
 import { PanelLayout } from '@/components/layout/panel-layout';
 import { safeRedirect } from '@/features/auth/auth-api';
+import { SettingsLayout, settingsTabsFor } from '@/features/settings/settings-layout';
 import { ApiError } from '@/lib/api';
 import {
   type Session,
@@ -169,24 +170,45 @@ const merchantDetailRoute = createRoute({
   ),
 });
 
-/** Configuración: por ahora solo Usuarios (#18). Los datos de la empresa llegan después. */
+/**
+ * Configuración: Usuarios (#18) y Auditoría (#17), cada pestaña con su permiso. Sin ninguno →
+ * inicio del panel; `/panel/configuracion` sola → la primera pestaña permitida.
+ */
 const settingsRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: 'configuracion',
   beforeLoad: ({ context, location }) => {
-    // Solo con `users:read` (la API lo exige igual); el resto vuelve al inicio del panel.
-    const membership = activeMembership(context.session);
-    if (!membership || !can(membership.role, 'users:read')) throw redirect({ to: '/panel/' });
+    const tabs = settingsTabsFor(activeMembership(context.session)?.role ?? null);
+    if (tabs.length === 0) throw redirect({ to: '/panel/' });
     if (location.pathname.replace(/\/$/, '') === '/panel/configuracion') {
-      throw redirect({ to: '/panel/configuracion/usuarios' });
+      throw redirect({ to: tabs[0]!.to });
     }
   },
+  component: SettingsLayout,
 });
+
+/** Una pestaña sin su permiso vuelve a Configuración (que elige otra). La API lo exige igual. */
+function requireSettingsPermission(permission: Permission) {
+  return ({ context }: { context: { session: Session } }) => {
+    const membership = activeMembership(context.session);
+    if (!membership || !can(membership.role, permission)) {
+      throw redirect({ to: '/panel/configuracion' });
+    }
+  };
+}
 
 const membersRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: 'usuarios',
+  beforeLoad: requireSettingsPermission('users:read'),
   component: lazyRouteComponent(() => import('@/features/members/members-page'), 'MembersPage'),
+});
+
+const auditRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: 'auditoria',
+  beforeLoad: requireSettingsPermission('audit:read'),
+  component: lazyRouteComponent(() => import('@/features/audit/audit-page'), 'AuditPage'),
 });
 
 const uiRoute = createRoute({
@@ -254,7 +276,7 @@ const routeTree = rootRoute.addChildren([
     ...sectionRoutes,
     merchantsRoute,
     merchantDetailRoute,
-    settingsRoute.addChildren([membersRoute]),
+    settingsRoute.addChildren([membersRoute, auditRoute]),
     uiRoute,
     dispatchPrototypeRoute,
     orderPrototypeRoute,
