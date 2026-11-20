@@ -1,16 +1,17 @@
 # Handoff — estado del trabajo
 
-> Última actualización: **2026-11-20** (vista de auditoría en la web, #17). Antes: 2026-11-18 (#16, #17, login web, #19 y #18). Punto de partida para la próxima sesión (humana o de agentes).
+> Última actualización: **2026-11-20** (vista de auditoría en la web, #17, y cambio de contraseña en la web, #14). Antes: 2026-11-18 (#16, #17, login web, #19 y #18). Punto de partida para la próxima sesión (humana o de agentes).
 > Leer junto con [`CLAUDE.md`](../CLAUDE.md), [`ROADMAP.md`](ROADMAP.md) y [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
 
 ## Resumen
 
 Release **R1 — Fundaciones** en curso. Ya están el monorepo, la multi-tenancy con RLS, la autenticación con sesiones de servidor y el sistema de diseño **"Riel"**, con prototipos navegables. Todo corre **en local** con Docker Compose. El pase a producción va a los **servidores propios** del dueño y se define más adelante; ADR-013 (hosting cloud) queda pospuesto.
 
-**Rama más reciente:** `feat/17-auditoria-web`, que incluye todo lo de abajo. Verificada el 2026-11-20:
+**Rama más reciente:** `feat/14-cambio-contrasena`, que incluye todo lo de abajo. Verificada el 2026-11-20:
 
 - `lint`, `typecheck` y `build` pasan; Prettier pasa en los archivos cambiados.
-- Web: **191 tests** (169 + 22 de la auditoría y las fechas por zona). El resto no cambió desde `feat/18-usuarios` (api 254, contracts 60, auth 45, domain 2).
+- Web: **198 tests** (169 + 22 de la auditoría y las fechas por zona + 7 del cambio de contraseña). El resto no cambió desde `feat/18-usuarios` (api 254, contracts 60, auth 45, domain 2).
+- Cambio de contraseña probado contra la API real (con un usuario del seed, después restaurado): actual incorrecta `400`, cierra las otras sesiones, esta sigue y el token CSRF viejo da `403`.
 - Vista de auditoría probada contra la API real: crear, editar, suspender y agregar sucursal quedan con sus cambios; filtros de área, fecha, persona y cursor; `403` para un Operador; otra empresa no ve nada.
 - El contraste AA pasa: 150/150 pares.
 - Los tests de la web esperan hasta 3 s en `findBy…`/`waitFor` (`test-setup.ts`): con 1 s fallaban al azar con la máquina cargada.
@@ -31,7 +32,8 @@ Release **R1 — Fundaciones** en curso. Ya están el monorepo, la multi-tenancy
 | `feat/14-login-web` | Login real en la web, sesión, guardas de ruta, cambio de empresa, logout | `feat/17-auditoria` |
 | `feat/19-comercios` | Comercios y sucursales: API, auditoría y pantallas | `feat/14-login-web` |
 | `feat/18-usuarios` | Usuarios del tenant e invitaciones por email: API, auditoría y pantallas (pusheada a GitHub) | `feat/19-comercios` |
-| **`feat/17-auditoria-web`** | Vista de auditoría en Configuración, pestañas de Configuración. **Rama más reciente: incluye todo lo anterior** | `feat/18-usuarios` |
+| `feat/17-auditoria-web` | Vista de auditoría en Configuración, pestañas de Configuración | `feat/18-usuarios` |
+| **`feat/14-cambio-contrasena`** | Cambiar contraseña desde el menú de usuario del panel. **Rama más reciente: incluye todo lo anterior** | `feat/17-auditoria-web` |
 
 Flujo acordado: commits locales en ramas `feat/…`. El dueño decide cuándo pushear y cuándo mergear a `main`.
 
@@ -43,7 +45,7 @@ Flujo acordado: commits locales en ramas `feat/…`. El dueño decide cuándo pu
 | #3 Hosting (ADR-013) | ⏸ Pospuesto: servidores propios, se ve al pasar a producción |
 | #13 Monorepo, CI y entorno local | ✅ Hecho |
 | #15 Multi-tenancy con RLS | ✅ Hecho |
-| #14 Autenticación y sesiones | ✅ Hecho, solo backend |
+| #14 Autenticación y sesiones | ✅ Hecho: backend, ingreso en la web (`feat/14-login-web`) y cambio de contraseña (`feat/14-cambio-contrasena`) |
 | #20 Base de UI | ✅ Hecho: sistema + prototipos, sin conectar a la API |
 | #16 Roles fijos y guardas de permisos | ✅ Hecho en `feat/16-permisos` (matriz en `packages/auth`, `@RequirePermission()`) |
 | #17 Auditoría transversal | ✅ Backend en `feat/17-auditoria` (`recordChange` + `auditDiff`, `GET /audit-logs`); vista web en `feat/17-auditoria-web` |
@@ -96,7 +98,7 @@ pnpm dev             # API :3000 · web :5173
    - proxy de Vite, CSRF y guardas por rol;
    - verificado de punta a punta contra la API real.
 
-   Detalle en [`UI.md`](UI.md#sesión-en-la-web). Falta el cambio de contraseña en la web (la vista de auditoría ya está, paso 6).
+   Detalle en [`UI.md`](UI.md#sesión-en-la-web). El cambio de contraseña y la vista de auditoría llegaron después (pasos 6 y 7).
 4. ~~**#19 Comercios y sucursales.**~~ Hecho en `feat/19-comercios`:
    - API con estados (activo, suspendido, archivado), sucursales con horario y auditoría de cada cambio (datos de contacto ocultos);
    - `expectTenantIsolation` en cada endpoint con id y matriz de permisos generada desde `@zestia/auth`;
@@ -124,7 +126,8 @@ pnpm dev             # API :3000 · web :5173
    - filtros por área, rango de días en la zona del tenant (`zonedDayStartToUtc`) y persona; "Cargar más" con cursor.
 
    Detalle en [`UI.md`](UI.md#patrones), límites en [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
-7. **Siguiente:** cambio de contraseña en la web (la API ya tiene `POST /auth/change-password`), después el aviso antes de que venza la sesión, y revisar con el dueño el [`ROADMAP.md`](ROADMAP.md) para lo que queda de R1.
+7. ~~**Cambio de contraseña en la web (#14).**~~ Hecho en `feat/14-cambio-contrasena`: diálogo desde el menú de usuario del panel. Guarda el `csrfToken` nuevo que devuelve la API al rotar la sesión. Detalle en [`UI.md`](UI.md#sesión-en-la-web).
+8. **Siguiente:** aviso antes de que venza la sesión por inactividad, y revisar con el dueño el [`ROADMAP.md`](ROADMAP.md) para lo que queda de R1.
 
 ## Pendientes y avisos
 

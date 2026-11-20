@@ -19,7 +19,7 @@ Lista honesta de lo que el sistema **no** hace (o aún no). Se actualiza en cada
 
 - R1 en curso: monorepo (#13), multi-tenancy con RLS (#15) y autenticación con sesiones de servidor (#14).
 - **Autenticación en la web:** ingreso, selector de empresa, cambio de empresa, cierre de sesión, olvidé y restablecer contraseña conectados a la API. Todavía no hay:
-  - pantalla de cambio de contraseña;
+  - cambio de contraseña para Repartidor y Comercio: está en el menú de usuario del panel, y esos roles todavía no tienen su app (R2); pueden usar "Olvidé mi contraseña";
   - "mis sesiones";
   - un aviso antes de que venza la sesión por inactividad (al vencer, el próximo pedido manda al ingreso).
 - Sin CORS: la web y la API se sirven desde el mismo origen. En desarrollo lo resuelve el proxy de Vite; en producción tiene que hacerlo el proxy inverso.

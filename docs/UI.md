@@ -32,6 +32,7 @@ El panel exige iniciar sesión (usuarios del seed, contraseña `SEED_USER_PASSWO
 - `src/lib/session.ts`: `GET /auth/me` en React Query (`['session']`), `useSession()`, `useCan(permiso)` (matriz de `@zestia/auth`; solo para mostrar u ocultar) y `homeFor(rol)`.
 - Las rutas protegidas verifican la sesión en `beforeLoad` (`router.tsx`). Un 401 de cualquier llamada limpia la sesión y vuelve a `/ingreso?redirect=…`. `safeRedirect()` solo acepta rutas internas.
 - La navegación esconde lo que el rol no puede usar (`permission` en `nav.ts`).
+- **Cambiar contraseña** (menú de usuario del panel, `ChangePasswordDialog`): pide la actual y la nueva dos veces, con los mismos requisitos en vivo que el restablecimiento, más "Distinta de la actual" (solo lo pide la web). La API cierra las demás sesiones y **rota esta**: la respuesta trae un `csrfToken` nuevo que se guarda en la sesión; sin eso, la siguiente acción daría `403 CSRF_TOKEN_INVALID`. Actual incorrecta: error en el campo, con foco. Demasiados intentos: cuánto esperar. Sesión vencida: vuelve al ingreso.
 - Tests: `src/test/fake-api.ts` emula `/api/v1/auth` con el mismo contrato (CSRF incluido). `test-setup.ts` arranca cada test con una sesión de Propietario.
 
 Los prototipos usan datos **obviamente falsos** (`DEMO-1043`, "Lomitería Demo", "Envíos Ejemplo
