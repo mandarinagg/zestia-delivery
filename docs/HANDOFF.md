@@ -1,16 +1,17 @@
 # Handoff — estado del trabajo
 
-> Última actualización: **2026-11-18** (noche: #16, #17, login web, #19 y #18). Punto de partida para la próxima sesión (humana o de agentes).
+> Última actualización: **2026-11-20** (vista de auditoría en la web, #17). Antes: 2026-11-18 (#16, #17, login web, #19 y #18). Punto de partida para la próxima sesión (humana o de agentes).
 > Leer junto con [`CLAUDE.md`](../CLAUDE.md), [`ROADMAP.md`](ROADMAP.md) y [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
 
 ## Resumen
 
 Release **R1 — Fundaciones** en curso. Ya están el monorepo, la multi-tenancy con RLS, la autenticación con sesiones de servidor y el sistema de diseño **"Riel"**, con prototipos navegables. Todo corre **en local** con Docker Compose. El pase a producción va a los **servidores propios** del dueño y se define más adelante; ADR-013 (hosting cloud) queda pospuesto.
 
-**Rama más reciente:** `feat/18-usuarios`, que incluye todo lo de abajo. Verificada el 2026-11-18:
+**Rama más reciente:** `feat/17-auditoria-web`, que incluye todo lo de abajo. Verificada el 2026-11-20:
 
 - `lint`, `typecheck` y `build` pasan; Prettier pasa en los archivos cambiados.
-- `pnpm test` pasa con **530 tests**: api 254, web 169, contracts 60, auth 45, domain 2.
+- Web: **191 tests** (169 + 22 de la auditoría y las fechas por zona). El resto no cambió desde `feat/18-usuarios` (api 254, contracts 60, auth 45, domain 2).
+- Vista de auditoría probada contra la API real: crear, editar, suspender y agregar sucursal quedan con sus cambios; filtros de área, fecha, persona y cursor; `403` para un Operador; otra empresa no ve nada.
 - El contraste AA pasa: 150/150 pares.
 - Los tests de la web esperan hasta 3 s en `findBy…`/`waitFor` (`test-setup.ts`): con 1 s fallaban al azar con la máquina cargada.
 
@@ -29,7 +30,8 @@ Release **R1 — Fundaciones** en curso. Ya están el monorepo, la multi-tenancy
 | `feat/17-auditoria` | Auditoría con antes/después y consulta (#17) | `feat/16-permisos` |
 | `feat/14-login-web` | Login real en la web, sesión, guardas de ruta, cambio de empresa, logout | `feat/17-auditoria` |
 | `feat/19-comercios` | Comercios y sucursales: API, auditoría y pantallas | `feat/14-login-web` |
-| **`feat/18-usuarios`** | Usuarios del tenant e invitaciones por email: API, auditoría y pantallas. **Rama más reciente: incluye todo lo anterior** | `feat/19-comercios` |
+| `feat/18-usuarios` | Usuarios del tenant e invitaciones por email: API, auditoría y pantallas (pusheada a GitHub) | `feat/19-comercios` |
+| **`feat/17-auditoria-web`** | Vista de auditoría en Configuración, pestañas de Configuración. **Rama más reciente: incluye todo lo anterior** | `feat/18-usuarios` |
 
 Flujo acordado: commits locales en ramas `feat/…`. El dueño decide cuándo pushear y cuándo mergear a `main`.
 
@@ -44,7 +46,7 @@ Flujo acordado: commits locales en ramas `feat/…`. El dueño decide cuándo pu
 | #14 Autenticación y sesiones | ✅ Hecho, solo backend |
 | #20 Base de UI | ✅ Hecho: sistema + prototipos, sin conectar a la API |
 | #16 Roles fijos y guardas de permisos | ✅ Hecho en `feat/16-permisos` (matriz en `packages/auth`, `@RequirePermission()`) |
-| #17 Auditoría transversal | ✅ Backend en `feat/17-auditoria` (`recordChange` + `auditDiff`, `GET /audit-logs`); la vista web va con la conexión del frontend |
+| #17 Auditoría transversal | ✅ Backend en `feat/17-auditoria` (`recordChange` + `auditDiff`, `GET /audit-logs`); vista web en `feat/17-auditoria-web` |
 | #19 CRUD de comercios y sucursales | ✅ Hecho en `feat/19-comercios`: API con auditoría y pantallas `/panel/comercios` |
 | #18 Usuarios del tenant e invitaciones | ✅ Hecho en `feat/18-usuarios`: API con auditoría, `/panel/configuracion/usuarios` y aceptación pública `/invitacion` |
 
@@ -94,7 +96,7 @@ pnpm dev             # API :3000 · web :5173
    - proxy de Vite, CSRF y guardas por rol;
    - verificado de punta a punta contra la API real.
 
-   Detalle en [`UI.md`](UI.md#sesión-en-la-web). Faltan la vista de auditoría y el cambio de contraseña en la web.
+   Detalle en [`UI.md`](UI.md#sesión-en-la-web). Falta el cambio de contraseña en la web (la vista de auditoría ya está, paso 6).
 4. ~~**#19 Comercios y sucursales.**~~ Hecho en `feat/19-comercios`:
    - API con estados (activo, suspendido, archivado), sucursales con horario y auditoría de cada cambio (datos de contacto ocultos);
    - `expectTenantIsolation` en cada endpoint con id y matriz de permisos generada desde `@zestia/auth`;
@@ -116,7 +118,13 @@ pnpm dev             # API :3000 · web :5173
    - Repartidor y Comercio no se asignan en R1 (no tienen app ni permisos todavía).
    - El email se manda dentro de la transacción: si el SMTP falla, `502` y no se guarda nada (sin outbox).
    - Quien invita nunca ve el enlace; no hay "copiar enlace" para mandarlo por WhatsApp. Si hace falta, es una decisión de seguridad aparte.
-6. **Siguiente:** cerrar los pendientes de la web de R1 (vista de auditoría, cambio de contraseña, aviso antes de que venza la sesión) y revisar con el dueño el [`ROADMAP.md`](ROADMAP.md) para lo que queda de R1.
+6. ~~**Vista de auditoría (#17, web).**~~ Hecha en `feat/17-auditoria-web`:
+   - `/panel/configuracion/auditoria`, con pestañas en Configuración (cada una con su permiso);
+   - eventos por día con frase legible, detalle de cambios (datos personales como "Dato protegido") y enlace al comercio;
+   - filtros por área, rango de días en la zona del tenant (`zonedDayStartToUtc`) y persona; "Cargar más" con cursor.
+
+   Detalle en [`UI.md`](UI.md#patrones), límites en [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
+7. **Siguiente:** cambio de contraseña en la web (la API ya tiene `POST /auth/change-password`), después el aviso antes de que venza la sesión, y revisar con el dueño el [`ROADMAP.md`](ROADMAP.md) para lo que queda de R1.
 
 ## Pendientes y avisos
 
@@ -125,7 +133,7 @@ pnpm dev             # API :3000 · web :5173
 - **Rol Soporte de plataforma** (SPEC §3): necesita su propio issue.
 - `.claude/worktrees` tiene worktrees viejos que se pueden borrar.
 
-- **Push de workflows:** el token de `gh` necesita el scope `workflow` para pushear `.github/workflows/ci.yml`. Se habilita con `gh auth refresh -h github.com -s workflow`, corrido en una terminal normal.
+- **Push de workflows:** el token de `gh` necesita el scope `workflow` para pushear `.github/workflows/ci.yml`. En esta máquina ya está habilitado (2026-11-20). En otra PC: `gh auth login -s workflow` y `gh auth setup-git`.
 - **CI en GitHub:** nunca corrió en GitHub Actions. Todo se verificó en local; los tests de integración usan Testcontainers y requieren Docker.
 - **pnpm 12** avisa "Agent skills awaiting approval: @tanstack/react-router" (`pnpm approve`). Es informativo; no se aprobó.
 - **Prototipos:**

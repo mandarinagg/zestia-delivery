@@ -32,7 +32,10 @@ Lista honesta de lo que el sistema **no** hace (o aún no). Se actualiza en cada
   - La usan los comercios y sucursales (#19) y la gestión de usuarios (#18).
   - Sin política de retención ni purga (depende de la consulta legal, #11). No se guarda la IP.
   - Los intentos denegados por permiso (403) no se auditan.
-  - La vista web de la auditoría todavía no está (la API sí).
+  - Vista web en `/panel/configuracion/auditoria`. No muestra el nombre del objeto afectado (la API devuelve solo tipo e id): enlaza al comercio cuando puede y, para usuarios e invitaciones, dice "un usuario" o "una invitación".
+  - Los eventos sin tenant (ingreso, reset de contraseña) no aparecen en la vista, por diseño: no son de ninguna empresa.
+  - Sin export (CSV llega con el dashboard, #30) ni historial dentro del detalle de un comercio (la API ya filtra por `entityId`).
+  - La zona horaria de la vista es la por defecto (`America/Asuncion`) hasta que el tenant tenga la suya.
 - Los errores de la API usan `{ statusCode, code }`, todavía no el formato RFC 9457 de `API_CONTRACTS.md`.
 - Comercios y sucursales (#19):
   - El RUC se valida solo por formato (`80012345-6`), no el dígito verificador.
@@ -47,7 +50,7 @@ Lista honesta de lo que el sistema **no** hace (o aún no). Se actualiza en cada
   - Sin outbox de emails: si el SMTP falla al invitar o reenviar, se responde `502` y no se guarda nada; hay que reintentar a mano.
   - Deshabilitar una membresía no corta la sesión abierta en ese momento: la corta la próxima request (que da `403`). La cuenta global (`users.status`) solo la cambia la plataforma; no hay pantalla para eso.
   - Las invitaciones vencidas no se borran: quedan como historial (se ven hasta que se reenvían o revocan).
-  - La web todavía no tiene la pestaña de datos de la empresa en Configuración; solo Usuarios.
+  - La web todavía no tiene la pestaña de datos de la empresa en Configuración; solo Usuarios y Auditoría.
 - `users` y `tenants` tienen RLS y la API solo puede leerlos: el alta de tenants (onboarding de plataforma) y el alta de usuarios necesitan su propio camino. El login por email usa funciones `SECURITY DEFINER` acotadas (#14).
 - Las tablas tienen `FORCE ROW LEVEL SECURITY`, que también aplica al dueño: una migración de **datos** sobre tablas de negocio debe fijar `app.tenant_id` por tenant (o correrla un rol de mantenimiento dedicado); las migraciones de esquema no se ven afectadas.
 - `pnpm test` en `apps/api` necesita Docker (Testcontainers) para los tests de integración; `pnpm --filter @zestia/api test:unit` corre solo los unitarios.

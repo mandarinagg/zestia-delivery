@@ -261,6 +261,22 @@ escribe), `withViewTransition`, `prefersReducedMotion`, `formatPYG`, `formatTime
   - *Restablecer:* el token llega en el fragmento (`#token=…`), se lee y se saca de la barra de
     direcciones con `replace`. Requisitos en vivo (largo mínimo provisorio de 10, coincidencia).
     Enlace vencido o incompleto: pantalla propia con "Pedir un enlace nuevo".
+- **Auditoría** (`/panel/configuracion/auditoria`, #17; Propietario y Admin, permiso
+  `audit:read`):
+  - Lista por día, de lo más reciente a lo más antiguo. Cada evento dice quién hizo qué ("Ana
+    suspendió un comercio"), a qué hora (zona del tenant) y, si existe la pantalla, enlaza al
+    comercio (también desde sus sucursales).
+  - "Detalle" (`aria-expanded`) muestra los cambios campo por campo (Campo · Antes · Después),
+    con roles, estados, fechas y horarios traducidos. Lo marcado `redacted` se lee "Dato
+    protegido": cambió, pero el valor no se guarda. Debajo, datos útiles (motivo, cuenta nueva)
+    y la referencia para soporte (`correlationId`); los ids internos no se muestran.
+  - Filtros: área (Comercios, Usuarios, Accesos → prefijo `action`), rango "Desde/Hasta" (días
+    completos en la zona del tenant; "Hasta" incluye el día) y persona (clic en el nombre, se
+    quita con el chip). Un rango al revés avisa en el campo y no consulta.
+  - Los textos están en `features/audit/audit-format.ts`. Una acción, campo o valor nuevo de la
+    API se muestra tal cual (`registró «zones.created»`): nunca rompe la pantalla.
+- **Configuración** tiene pestañas (Usuarios, Auditoría); cada una aparece y se abre solo con su
+  permiso, y `/panel/configuracion` va a la primera permitida.
 - **Vacíos, carga y error:** cada lista tiene los tres. El error ofrece "Reintentar"; el vacío
   dice cómo llenarlo.
 - **Conexión:** "En vivo" en la barra superior; al caer, banner con la hora del último dato y
@@ -288,6 +304,9 @@ escribe), `withViewTransition`, `prefersReducedMotion`, `formatPYG`, `formatTime
 - `formatDateTime / formatDate / formatTime(isoUtc, tz = 'America/Asuncion')` → 24 h. Pasar la
   zona del tenant cuando exista.
 - `formatMinutes(65)` → `1 h 05` (`< 1 min`, `7 min`); `minutesBetween(a, b)`.
+- Filtros por día: `zonedDayStartToUtc('2026-11-18', tz)` → `2026-11-18T03:00:00.000Z` (primer
+  instante del día en la zona, con el offset de `Intl`: respeta cambios de hora),
+  `nextDay('2026-11-18')` → `2026-11-19` y `toDateInput(isoUtc, tz)` para `<input type="date">`.
 
 ## Convenciones
 
