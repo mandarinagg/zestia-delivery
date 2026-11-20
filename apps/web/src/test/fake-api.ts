@@ -1,4 +1,8 @@
-import type { AuthMembership, AuthSessionResponse } from '@zestia/contracts';
+import {
+  type AuthMembership,
+  type AuthSessionResponse,
+  changePasswordRequestSchema,
+} from '@zestia/contracts';
 import { FakeAudit } from './fake-audit';
 import { FakeMembers } from './fake-members';
 import { FakeMerchants } from './fake-merchants';
@@ -119,6 +123,10 @@ class FakeApi {
   offline = false;
   /** El próximo login responde 429 con `Retry-After` en segundos. */
   loginRetryAfter: number | null = null;
+  /** El próximo cambio de contraseña responde 429 con `Retry-After` en segundos. */
+  changePasswordRetryAfter: number | null = null;
+  /** Token CSRF de la sesión: cambia cuando la sesión rota (cambio de contraseña). */
+  csrf = CSRF;
   /** Comercios y sucursales (`/merchants`), por empresa. */
   readonly merchants = new FakeMerchants();
   /** Usuarios de la empresa e invitaciones (`/members`, `/invitations`, `/auth/invitations`). */
@@ -138,6 +146,8 @@ class FakeApi {
     this.requests = [];
     this.offline = false;
     this.loginRetryAfter = null;
+    this.changePasswordRetryAfter = null;
+    this.csrf = CSRF;
     const as = options.as === undefined ? OWNER : options.as;
     this.session = as ? { userId: as.id, activeTenantId: this.defaultTenant(as) } : null;
   }
@@ -170,7 +180,7 @@ class FakeApi {
       '/auth/invitations/accept',
     ];
     if (method !== 'GET' && this.session && !csrfExempt.includes(path)) {
-      if (headers.get('x-csrf-token') !== CSRF) return error(403, 'CSRF_TOKEN_INVALID');
+      if (headers.get('x-csrf-token') !== this.csrf) return error(403, 'CSRF_TOKEN_INVALID');
     }
 
     switch (`${method} ${path}`) {
@@ -196,6 +206,24 @@ class FakeApi {
         if (membership?.tenantStatus !== 'ACTIVE') return error(403, 'NO_ACTIVE_MEMBERSHIP');
         this.session.activeTenantId = tenantId;
         return json(200, this.sessionBody());
+      }
+      case 'POST /auth/change-password': {
+        if (!this.session) return error(401, 'UNAUTHENTICATED');
+        if (this.changePasswordRetryAfter !== null) {
+          return error(429, 'TOO_MANY_ATTEMPTS', {
+            'Retry-After': String(this.changePasswordRetryAfter),
+          });
+        }
+        const parsed = changePasswordRequestSchema.safeParse(body);
+        if (!parsed.success) return error(400, 'VALIDATION_FAILED');
+        const user = this.user()!;
+        if (user.password !== parsed.data.currentPassword) {
+          return error(400, 'INVALID_CURRENT_PASSWORD');
+        }
+        // Como la API: guarda la nueva y rota esta sesión (CSRF nuevo).
+        user.password = parsed.data.newPassword;
+        this.csrf = `${CSRF}-rotado-${Date.now()}`;
+        return json(200, { csrfToken: this.csrf });
       }
       case 'POST /auth/forgot-password':
         return json(202, { message: 'Si la cuenta existe, te enviamos un enlace.' });
@@ -247,7 +275,7 @@ class FakeApi {
       user: { id: user.id, name: user.name, email: user.email },
       memberships: user.memberships,
       activeTenantId: this.session!.activeTenantId,
-      csrfToken: CSRF,
+      csrfToken: this.csrf,
     };
   }
 }
