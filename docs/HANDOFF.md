@@ -37,6 +37,8 @@ Release **R1 — Fundaciones** en curso. Ya están el monorepo, la multi-tenancy
 
 Flujo acordado: commits locales en ramas `feat/…`. El dueño decide cuándo pushear y cuándo mergear a `main`.
 
+**En GitHub** (2026-11-20): `feat/18-usuarios`, `feat/17-auditoria-web` y `feat/14-cambio-contrasena`. Para seguir en otra PC: `gh auth login -s workflow`, `gh auth setup-git`, clonar y `git checkout feat/14-cambio-contrasena` (contiene todas las demás). Ninguna está mergeada a `main` todavía.
+
 ## Issues
 
 | Issue | Estado |
@@ -130,6 +132,8 @@ pnpm dev             # API :3000 · web :5173
 8. **Siguiente:** aviso antes de que venza la sesión por inactividad, y revisar con el dueño el [`ROADMAP.md`](ROADMAP.md) para lo que queda de R1.
 
 ## Pendientes y avisos
+
+- **Datos de prueba en la base local de esta máquina** (de la verificación del 2026-11-20): un comercio suspendido "Auditoria E2E 135234 (editado)" con la sucursal "Centro". La contraseña de `dario@zestia.test` se cambió y se restauró a la del seed. Una base nueva (`down -v` + `db:seed`) no los tiene.
 
 - **Base local de esta máquina:** el nombre de un índice de la migración `20261118200000_members_invitations` se corrigió después de aplicarla. En la base local se renombró el índice y se actualizó el checksum en `_prisma_migrations` (sin perder datos); `prisma migrate status` y `migrate diff` quedan limpios. Una base nueva no necesita nada.
 - **Seed:** "Eva (deshabilitada)" tiene la **cuenta** deshabilitada y la membresía activa: en Usuarios aparece como "Cuenta deshabilitada".
