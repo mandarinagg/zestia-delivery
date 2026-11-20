@@ -1,4 +1,5 @@
 import type { AuthMembership, AuthSessionResponse } from '@zestia/contracts';
+import { FakeAudit } from './fake-audit';
 import { FakeMembers } from './fake-members';
 import { FakeMerchants } from './fake-merchants';
 
@@ -22,6 +23,8 @@ export interface FakeUser {
 export interface RecordedRequest {
   method: string;
   path: string;
+  /** Parámetros de la URL (sin `?`), para ver qué filtros mandó la pantalla. */
+  query: URLSearchParams;
   csrf: string | null;
   body: unknown;
 }
@@ -120,6 +123,8 @@ class FakeApi {
   readonly merchants = new FakeMerchants();
   /** Usuarios de la empresa e invitaciones (`/members`, `/invitations`, `/auth/invitations`). */
   readonly members = new FakeMembers();
+  /** Auditoría (`/audit-logs`), por empresa. */
+  readonly audit = new FakeAudit();
 
   reset(options: { as?: FakeUser | null } = {}): void {
     // Copias: aceptar una invitación suma membresías y no debe filtrarse a otros tests.
@@ -129,6 +134,7 @@ class FakeApi {
     }));
     this.merchants.reset();
     this.members.reset(this.users);
+    this.audit.reset();
     this.requests = [];
     this.offline = false;
     this.loginRetryAfter = null;
@@ -147,7 +153,13 @@ class FakeApi {
     const method = (init.method ?? 'GET').toUpperCase();
     const headers = new Headers(init.headers);
     const body: unknown = typeof init.body === 'string' ? JSON.parse(init.body) : undefined;
-    this.requests.push({ method, path: url.pathname, csrf: headers.get('x-csrf-token'), body });
+    this.requests.push({
+      method,
+      path: url.pathname,
+      query: url.searchParams,
+      csrf: headers.get('x-csrf-token'),
+      body,
+    });
 
     const path = url.pathname.replace(/^\/api\/v1/, '');
     const csrfExempt = [
@@ -205,7 +217,8 @@ class FakeApi {
         const who = { tenantId, role: membership.role, userId: this.session.userId };
         const result =
           this.merchants.handle(method, path, url.searchParams, body, who) ??
-          this.members.handle(method, path, url.searchParams, body, who);
+          this.members.handle(method, path, url.searchParams, body, who) ??
+          this.audit.handle(method, path, url.searchParams, who);
         return result ? reply(result) : error(404, 'NOT_FOUND');
       }
     }
