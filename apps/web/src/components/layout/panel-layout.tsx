@@ -6,6 +6,7 @@ import {
   ChevronsRight,
   ChevronsUpDown,
   FlaskConical,
+  KeyRound,
   Keyboard,
   LogOut,
   Menu,
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react';
 import { createContext, useContext, useState } from 'react';
 import { authApi } from '@/features/auth/auth-api';
+import { ChangePasswordDialog } from '@/features/auth/change-password-dialog';
 import { LogoMark, Wordmark } from '@/components/brand/logo';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Avatar } from '@/components/ui/avatar';
@@ -266,6 +268,7 @@ function UserMenu({ onShortcuts }: { onShortcuts: () => void }) {
   const navigate = useNavigate();
   const role = activeMembership(session)?.role;
   const name = session?.user.name ?? '';
+  const [changingPassword, setChangingPassword] = useState(false);
 
   async function logout() {
     try {
@@ -279,41 +282,49 @@ function UserMenu({ onShortcuts }: { onShortcuts: () => void }) {
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Menú de usuario" className="rounded-full">
-          <Avatar name={name} size="md" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
-        <div className="flex items-center gap-3 px-2 py-2">
-          <Avatar name={name} size="md" />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{name}</p>
-            <p className="truncate text-xs text-muted-foreground">{session?.user.email}</p>
-            {role ? (
-              <p className="truncate text-xs text-muted-foreground">{ROLE_LABEL[role]}</p>
-            ) : null}
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" aria-label="Menú de usuario" className="rounded-full">
+            <Avatar name={name} size="md" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-64">
+          <div className="flex items-center gap-3 px-2 py-2">
+            <Avatar name={name} size="md" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">{name}</p>
+              <p className="truncate text-xs text-muted-foreground">{session?.user.email}</p>
+              {role ? (
+                <p className="truncate text-xs text-muted-foreground">{ROLE_LABEL[role]}</p>
+              ) : null}
+            </div>
           </div>
-        </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel>Densidad de tablas y tablero</DropdownMenuLabel>
-        <DropdownMenuRadioGroup value={density} onValueChange={(v) => setDensity(v as Density)}>
-          <DropdownMenuRadioItem value="comfortable">Cómoda</DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="compact">Compacta</DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={onShortcuts}>
-          <Keyboard aria-hidden="true" />
-          <span className="flex-1">Atajos de teclado</span>
-          <Kbd>?</Kbd>
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => void logout()}>
-          <LogOut aria-hidden="true" />
-          Cerrar sesión
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>Densidad de tablas y tablero</DropdownMenuLabel>
+          <DropdownMenuRadioGroup value={density} onValueChange={(v) => setDensity(v as Density)}>
+            <DropdownMenuRadioItem value="comfortable">Cómoda</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="compact">Compacta</DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={onShortcuts}>
+            <Keyboard aria-hidden="true" />
+            <span className="flex-1">Atajos de teclado</span>
+            <Kbd>?</Kbd>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => setChangingPassword(true)}>
+            <KeyRound aria-hidden="true" />
+            Cambiar contraseña
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void logout()}>
+            <LogOut aria-hidden="true" />
+            Cerrar sesión
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ChangePasswordDialog open={changingPassword} onOpenChange={setChangingPassword} />
+    </>
   );
 }
 

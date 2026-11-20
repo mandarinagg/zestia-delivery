@@ -2,6 +2,7 @@ import {
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   authSessionResponseSchema,
+  changePasswordResponseSchema,
   forgotPasswordResponseSchema,
 } from '@zestia/contracts';
 import { z } from 'zod';
@@ -32,6 +33,15 @@ export const authApi = {
   },
   resetPassword: (token: string, password: string): Promise<void> =>
     api('/auth/reset-password', { method: 'POST', body: { token, password } }),
+  /** Rota la sesión: devuelve el `csrfToken` nuevo (el anterior deja de servir). */
+  changePassword: async (currentPassword: string, newPassword: string): Promise<string> => {
+    const { csrfToken } = await api('/auth/change-password', {
+      method: 'POST',
+      body: { currentPassword, newPassword },
+      schema: changePasswordResponseSchema,
+    });
+    return csrfToken;
+  },
 };
 
 /* --- Formularios (mensajes para personas; el servidor valida de nuevo) ------------------- */
@@ -55,20 +65,41 @@ export type ForgotValues = z.infer<typeof forgotSchema>;
 /** Mismo rango que el backend (`PASSWORD_MIN_LENGTH`/`MAX` de los contratos). */
 export const MIN_PASSWORD = PASSWORD_MIN_LENGTH;
 
+const newPasswordField = z
+  .string()
+  .min(1, 'Ingresá una contraseña nueva.')
+  .min(MIN_PASSWORD, `Usá al menos ${MIN_PASSWORD} caracteres.`)
+  .max(PASSWORD_MAX_LENGTH, `Usá como mucho ${PASSWORD_MAX_LENGTH} caracteres.`);
+
+const sameAsConfirm = {
+  path: ['confirm'],
+  message: 'Las contraseñas no coinciden.',
+};
+
 export const resetSchema = z
   .object({
-    password: z
-      .string()
-      .min(1, 'Ingresá una contraseña nueva.')
-      .min(MIN_PASSWORD, `Usá al menos ${MIN_PASSWORD} caracteres.`)
-      .max(PASSWORD_MAX_LENGTH, `Usá como mucho ${PASSWORD_MAX_LENGTH} caracteres.`),
+    password: newPasswordField,
     confirm: z.string().min(1, 'Repetí la contraseña.'),
   })
-  .refine((v) => v.password === v.confirm, {
-    path: ['confirm'],
-    message: 'Las contraseñas no coinciden.',
-  });
+  .refine((v) => v.password === v.confirm, sameAsConfirm);
 export type ResetValues = z.infer<typeof resetSchema>;
+
+/**
+ * Cambio de contraseña con sesión. Que la nueva sea distinta de la actual lo pide solo la web
+ * (la API no lo exige): repetirla no protege de nada si la actual se filtró.
+ */
+export const changePasswordSchema = z
+  .object({
+    current: z.string().min(1, 'Ingresá tu contraseña actual.').max(256, 'Revisá la contraseña.'),
+    password: newPasswordField,
+    confirm: z.string().min(1, 'Repetí la contraseña.'),
+  })
+  .refine((v) => v.password === v.confirm, sameAsConfirm)
+  .refine((v) => v.password === '' || v.password !== v.current, {
+    path: ['password'],
+    message: 'Tiene que ser distinta de la actual.',
+  });
+export type ChangePasswordValues = z.infer<typeof changePasswordSchema>;
 
 /** Token del enlace del email: viene en el fragmento (`#token=…`), que no viaja al servidor. */
 export function tokenFromHash(hash: string): string | null {
