@@ -67,3 +67,44 @@ export function minutesBetween(fromIso: string, toIso: string): number {
   if (Number.isNaN(ms)) throw new RangeError('Fecha inválida');
   return Math.max(0, Math.floor(ms / 60_000));
 }
+
+/** Milisegundos que la hora local de `timeZone` está adelantada respecto de UTC en `ts`. */
+function zoneOffsetMs(ts: number, timeZone: string): number {
+  const p = parts(new Date(ts).toISOString(), timeZone);
+  const second = new Date(ts).getUTCSeconds();
+  const wall = Date.UTC(+p.year!, +p.month! - 1, +p.day!, +p.hour!, +p.minute!, second);
+  return wall - (ts - (ts % 1000));
+}
+
+/** `2026-11-17T12:00:00Z` -> `2026-11-17` (para `<input type="date">`) en la zona indicada. */
+export function toDateInput(iso: string, timeZone: string = DEFAULT_TIMEZONE): string {
+  const p = parts(iso, timeZone);
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
+/**
+ * Primer instante del día `YYYY-MM-DD` en la zona indicada, como ISO UTC:
+ * `2026-11-18` en Asunción (UTC−3) -> `2026-11-18T03:00:00.000Z`.
+ *
+ * El offset sale de `Intl` (nada de `-03:00` fijo). Si ese día la medianoche no existe por un
+ * cambio de hora, devuelve el primer instante que sí pertenece al día.
+ */
+export function zonedDayStartToUtc(day: string, timeZone: string = DEFAULT_TIMEZONE): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (!m) throw new RangeError(`Día inválido: ${day}`);
+  const midnightAsUtc = Date.UTC(+m[1]!, +m[2]! - 1, +m[3]!);
+  if (Number.isNaN(midnightAsUtc)) throw new RangeError(`Día inválido: ${day}`);
+  const first = midnightAsUtc - zoneOffsetMs(midnightAsUtc, timeZone);
+  const second = midnightAsUtc - zoneOffsetMs(first, timeZone);
+  const candidates = [first, second].filter(
+    (ts) => toDateInput(new Date(ts).toISOString(), timeZone) === day,
+  );
+  return new Date(Math.min(...(candidates.length ? candidates : [first]))).toISOString();
+}
+
+/** `2026-11-18` -> `2026-11-19` (calendario, sin zona horaria). */
+export function nextDay(day: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (!m) throw new RangeError(`Día inválido: ${day}`);
+  return new Date(Date.UTC(+m[1]!, +m[2]! - 1, +m[3]! + 1)).toISOString().slice(0, 10);
+}

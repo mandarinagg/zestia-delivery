@@ -3,6 +3,9 @@ import {
   formatDateTime,
   formatMinutes,
   formatPYG,
+  nextDay,
+  toDateInput,
+  zonedDayStartToUtc,
   formatTime,
   minutesBetween,
 } from './format';
@@ -61,5 +64,31 @@ describe('duraciones', () => {
   it('calcula minutos entre instantes y nunca negativos', () => {
     expect(minutesBetween('2026-11-18T17:00:00Z', '2026-11-18T17:12:59Z')).toBe(12);
     expect(minutesBetween('2026-11-18T17:10:00Z', '2026-11-18T17:00:00Z')).toBe(0);
+  });
+});
+
+describe('días en la zona del tenant (filtros por fecha)', () => {
+  it('inicio del día en Asunción (UTC−3) en UTC', () => {
+    expect(zonedDayStartToUtc('2026-11-18')).toBe('2026-11-18T03:00:00.000Z');
+    expect(zonedDayStartToUtc('2026-11-18', 'UTC')).toBe('2026-11-18T00:00:00.000Z');
+  });
+
+  it('respeta los cambios de hora: medianoche inexistente y día con hora repetida', () => {
+    // São Paulo, 2018-11-04: a las 00:00 se adelantó a 01:00 (−03 → −02).
+    expect(zonedDayStartToUtc('2018-11-04', 'America/Sao_Paulo')).toBe('2018-11-04T03:00:00.000Z');
+    // São Paulo, 2019-02-17: a las 00:00 volvió a las 23:00 del 16 (−02 → −03).
+    expect(zonedDayStartToUtc('2019-02-16', 'America/Sao_Paulo')).toBe('2019-02-16T02:00:00.000Z');
+    expect(zonedDayStartToUtc('2019-02-17', 'America/Sao_Paulo')).toBe('2019-02-17T03:00:00.000Z');
+  });
+
+  it('día siguiente y día local de un instante', () => {
+    expect(nextDay('2026-11-30')).toBe('2026-12-01');
+    expect(nextDay('2026-12-31')).toBe('2027-01-01');
+    expect(toDateInput('2026-11-18T02:30:00Z')).toBe('2026-11-17');
+  });
+
+  it('rechaza días mal formados', () => {
+    expect(() => zonedDayStartToUtc('18/11/2026')).toThrow(RangeError);
+    expect(() => nextDay('2026-1-1')).toThrow(RangeError);
   });
 });
