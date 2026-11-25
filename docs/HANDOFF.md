@@ -9,7 +9,7 @@ Release **R1 — Fundaciones** en curso. Ya están el monorepo, la multi-tenancy
 
 **Rama más reciente:** `feat/14-aviso-inactividad`, que incluye todo lo de abajo. Verificada el 2026-11-25:
 
-- `lint`, `typecheck` y `build` pasan; Prettier pasa en los archivos cambiados.
+- `lint`, `typecheck` y `build` pasan; Prettier pasa en los archivos cambiados. Los tests se volvieron a correr sin caché de Turbo (`turbo run test --force`): todos verdes.
 - Tests: web **229** (198 + los del aviso, el reloj de sesión y el cliente), api **262** (254 + los de los headers de tiempo restante y `session-status`). Sin cambios: contracts 60, auth 45, domain 2.
 - Headers `X-Session-Idle-Remaining` / `X-Session-Absolute-Remaining` y `GET /auth/session-status` verificados con `curl` contra la API real: `session-status` deja `idle_expires_at` y `last_seen_at` como estaban en la DB; `/auth/me` los renueva. No se probó el aviso en el navegador contra la API real.
 - Dos migraciones nuevas sobre `auth_session_lookup` (`pnpm db:migrate`; ya aplicadas en la base de esta máquina): `20261125120000_session_remaining_seconds` (devuelve los restantes) y `20261125140000_session_status_no_renew` (parámetro `p_renew` para consultar sin renovar y `ceil` en lugar de `floor`).
@@ -38,7 +38,7 @@ Release **R1 — Fundaciones** en curso. Ya están el monorepo, la multi-tenancy
 
 Flujo acordado: commits locales en ramas `feat/…`. El dueño decide cuándo pushear y cuándo mergear a `main`.
 
-**En GitHub** (2026-11-20): `feat/18-usuarios`, `feat/17-auditoria-web` y `feat/14-cambio-contrasena`. `feat/14-aviso-inactividad` todavía no se pusheó. Para seguir en otra PC: `gh auth login -s workflow`, `gh auth setup-git`, clonar y `git checkout feat/14-aviso-inactividad` (contiene todas las demás; hasta que se pushee, `feat/14-cambio-contrasena`). Ninguna está mergeada a `main` todavía.
+**En GitHub** (2026-11-25): `feat/18-usuarios`, `feat/17-auditoria-web`, `feat/14-cambio-contrasena` y `feat/14-aviso-inactividad`. Para seguir en otra PC: `gh auth login -s workflow`, `gh auth setup-git`, clonar y `git checkout feat/14-aviso-inactividad` (contiene todas las demás). Ninguna está mergeada a `main` todavía.
 
 ## Issues
 
@@ -130,13 +130,17 @@ pnpm dev             # API :3000 · web :5173
 
    Detalle en [`UI.md`](UI.md#patrones), límites en [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
 7. ~~**Cambio de contraseña en la web (#14).**~~ Hecho en `feat/14-cambio-contrasena`: diálogo desde el menú de usuario del panel. Guarda el `csrfToken` nuevo que devuelve la API al rotar la sesión. Detalle en [`UI.md`](UI.md#sesión-en-la-web).
-8. **Aviso de vencimiento de sesión (#14)** — hecho en `feat/14-aviso-inactividad` (parcial):
+8. **Aviso de vencimiento de sesión (#14)** — hecho en `feat/14-aviso-inactividad` (falta la prueba manual en el navegador):
    - API: `auth_session_lookup` devuelve los segundos restantes (redondeados hacia arriba) y la API los manda en `X-Session-Idle-Remaining` y `X-Session-Absolute-Remaining` (también al hacer login y cambiar la contraseña). Un solo endpoint nuevo, `GET /auth/session-status` (`204`, **no renueva**), para el chequeo al llegar a cero: con `/auth/me` el chequeo mismo alargaba la sesión;
    - web: `lib/session-clock.ts` (vencimientos compartidos entre pestañas) y `SessionExpiryNotice` en `PanelLayout`: aviso 2 minutos antes, "Seguir conectado" o "Cerrar sesión", aviso sin extender si manda el tiempo máximo, y al llegar a cero se pregunta a `session-status` (con reintento a *restante + 2 s* si quedaban fracciones). Una generación de sesión descarta las respuestas anteriores a un logout o login;
-   - detalle en [`UI.md`](UI.md#sesión-en-la-web) y [`SECURITY.md`](SECURITY.md#sesiones-de-servidor).
+   - detalle en [`UI.md`](UI.md#sesión-en-la-web) y [`SECURITY.md`](SECURITY.md#sesiones-de-servidor);
+   - pasó por una revisión independiente: el hallazgo serio (el chequeo a cero renovaba la sesión con `/auth/me`, así que un panel abandonado no vencía por inactividad) se arregló con `session-status` y `ceil`. También se arreglaron los headers en respuestas no-ok (salvo `401`), la generación de sesión y la accesibilidad del aviso y del motivo en `/ingreso`.
 
    Falta (en [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md)): el aviso solo está en `/panel/*` (no en `/comercio`, `/repartidor` ni prototipos), "inactividad" cuenta pedidos a la API y no mouse o teclado, y la hora de fin va en `America/Asuncion` hasta que la sesión traiga la zona del tenant. Hay que probarlo a mano en el navegador (por ejemplo con `SESSION_IDLE_TIMEOUT_MINUTES=3` en `apps/api/.env`).
-9. **Siguiente:** revisar con el dueño el [`ROADMAP.md`](ROADMAP.md) para lo que queda de R1.
+9. **Siguiente.** Con esto están todos los ítems de R1 del [`ROADMAP.md`](ROADMAP.md). Quedan tres decisiones del dueño:
+   - **Prueba manual del aviso** en el navegador contra la API real, con `SESSION_IDLE_TIMEOUT_MINUTES=3` y dos pestañas.
+   - **Gate de R1:** pide "2 tenants aislados en staging", pero no hay staging (ADR-013 pospuesto). Propuesta: validarlo en local con Docker Compose y anotarlo como desvío en el roadmap.
+   - **Merge a `main`:** abrir los PR en orden (o uno integrador desde `feat/14-aviso-inactividad`) para que el CI corra por primera vez en GitHub Actions.
 
 ## Pendientes y avisos
 
