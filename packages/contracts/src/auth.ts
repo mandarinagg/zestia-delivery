@@ -10,6 +10,14 @@ import { z } from 'zod';
 
 export const CSRF_HEADER = 'x-csrf-token';
 
+/**
+ * Tiempo que le queda a la sesión, en segundos enteros (no timestamps: el reloj del cliente no
+ * importa). La API los manda en toda respuesta de una sesión válida, ya renovada; el panel los
+ * usa para avisar antes de que venza. Idle = por inactividad (nunca pasa el absoluto).
+ */
+export const SESSION_IDLE_REMAINING_HEADER = 'x-session-idle-remaining';
+export const SESSION_ABSOLUTE_REMAINING_HEADER = 'x-session-absolute-remaining';
+
 /** Email normalizado: sin espacios alrededor y en minúsculas (así se guarda y se compara). */
 export const emailSchema = z.string().trim().toLowerCase().max(254).pipe(z.email());
 

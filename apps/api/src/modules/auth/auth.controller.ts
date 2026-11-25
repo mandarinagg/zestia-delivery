@@ -38,7 +38,7 @@ import { AuthService, type RateLimited, type RequestMeta } from './auth.service'
 import { SkipCsrfToken } from './csrf.guard';
 import { SessionAuthGuard } from './session-auth.guard';
 import { clearSessionCookie, setSessionCookie } from './session-cookie';
-import { type CurrentSession, SessionService } from './session.service';
+import { type CurrentSession, SessionService, setRemainingHeaders } from './session.service';
 import { deriveCsrfToken } from './tokens';
 
 type HttpRequest = IncomingMessage & { ip?: string; id?: unknown };
@@ -85,6 +85,12 @@ export class AuthController {
       secure: this.settings.cookieSecure,
       maxAgeSeconds: this.settings.absoluteSeconds,
     });
+    // Sesión recién creada: el vencimiento por inactividad es el completo (sin pasar el absoluto).
+    setRemainingHeaders(
+      res,
+      Math.min(this.settings.idleSeconds, this.settings.absoluteSeconds),
+      this.settings.absoluteSeconds,
+    );
     const view = await this.auth.sessionView(result);
     if (!view) throw unauthenticated();
     return view;
@@ -156,6 +162,12 @@ export class AuthController {
       secure: this.settings.cookieSecure,
       maxAgeSeconds: this.settings.absoluteSeconds,
     });
+    // La sesión rotada conserva el absoluto y renueva la inactividad.
+    setRemainingHeaders(
+      res,
+      Math.min(this.settings.idleSeconds, session.absoluteRemainingSeconds),
+      session.absoluteRemainingSeconds,
+    );
     return { csrfToken: deriveCsrfToken(result.token) };
   }
 

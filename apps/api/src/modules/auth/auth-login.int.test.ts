@@ -36,6 +36,9 @@ describe('login, sesión y logout (/api/v1/auth)', () => {
     const res = await postLogin({ email, password: PASSWORD }).expect(200);
 
     expect(res.headers['cache-control']).toBe('no-store');
+    // Sesión nueva: tiempo restante completo (así el panel sabe cuándo avisar sin otro pedido).
+    expect(res.headers['x-session-idle-remaining']).toBe(String(30 * 60));
+    expect(res.headers['x-session-absolute-remaining']).toBe(String(12 * 3600));
     expect(res.body).toEqual({
       user: { id: userId, name: 'Ana', email },
       memberships: [
@@ -215,6 +218,86 @@ describe('login, sesión y logout (/api/v1/auth)', () => {
     );
     expect(row!.remaining).toBeGreaterThan(29 * 60);
     expect(row!.remaining).toBeLessThanOrEqual(30 * 60);
+  });
+
+  describe('tiempo restante de la sesión (headers X-Session-*-Remaining)', () => {
+    const IDLE = 'x-session-idle-remaining';
+    const ABSOLUTE = 'x-session-absolute-remaining';
+    const MERCHANTS = '/api/v1/merchants/00000000-0000-4000-8000-000000000000';
+    const seconds = (value: unknown): number => {
+      expect(value).toMatch(/^\d+$/);
+      return Number(value);
+    };
+
+    it('van en /auth/me y en una ruta de tenant, con la renovación ya aplicada', async () => {
+      const { email } = await memberWithPassword();
+      const session = await login(app, email, PASSWORD);
+      // Última actividad vieja: este pedido renueva (idle vuelve a 30 min).
+      await seeder.query(
+        `UPDATE sessions SET last_seen_at = now() - interval '5 minutes',
+                idle_expires_at = now() + interval '90 seconds' WHERE token_hash = $1`,
+        [hashToken(session.token)],
+      );
+
+      const me = await session.attach(http().get('/api/v1/auth/me')).expect(200);
+      expect(seconds(me.headers[IDLE])).toBeGreaterThan(29 * 60);
+      expect(seconds(me.headers[IDLE])).toBeLessThanOrEqual(30 * 60);
+      // Absoluto: 12 h desde el login (menos unos segundos).
+      expect(seconds(me.headers[ABSOLUTE])).toBeGreaterThan(12 * 3600 - 60);
+      expect(seconds(me.headers[ABSOLUTE])).toBeLessThanOrEqual(12 * 3600);
+
+      // Ruta de tenant: el comercio no existe (404), pero la sesión es válida: lleva los headers.
+      const tenant = await session.attach(http().get(MERCHANTS)).expect(404);
+      expect(seconds(tenant.headers[IDLE])).toBeGreaterThan(29 * 60);
+      expect(seconds(tenant.headers[ABSOLUTE])).toBeGreaterThan(12 * 3600 - 60);
+    });
+
+    it('sin actividad nueva (dentro del minuto) informa el vencimiento real, sin renovar', async () => {
+      const { email } = await memberWithPassword();
+      const session = await login(app, email, PASSWORD);
+      await seeder.query(
+        `UPDATE sessions SET idle_expires_at = now() + interval '100 seconds' WHERE token_hash = $1`,
+        [hashToken(session.token)],
+      );
+      const res = await session.attach(http().get('/api/v1/auth/me')).expect(200);
+      expect(seconds(res.headers[IDLE])).toBeGreaterThan(95);
+      expect(seconds(res.headers[IDLE])).toBeLessThanOrEqual(100);
+    });
+
+    it('el de inactividad nunca supera el absoluto', async () => {
+      const { email } = await memberWithPassword();
+      const session = await login(app, email, PASSWORD);
+      await seeder.query(
+        `UPDATE sessions SET last_seen_at = now() - interval '5 minutes',
+                absolute_expires_at = now() + interval '45 seconds' WHERE token_hash = $1`,
+        [hashToken(session.token)],
+      );
+      const res = await session.attach(http().get('/api/v1/auth/me')).expect(200);
+      const idle = seconds(res.headers[IDLE]);
+      const absolute = seconds(res.headers[ABSOLUTE]);
+      expect(absolute).toBeGreaterThan(40);
+      expect(absolute).toBeLessThanOrEqual(45);
+      expect(idle).toBeLessThanOrEqual(absolute);
+    });
+
+    it('no aparecen sin sesión ni con una sesión vencida', async () => {
+      const { email } = await memberWithPassword();
+      const expired = await login(app, email, PASSWORD);
+      await seeder.query(
+        `UPDATE sessions SET idle_expires_at = now() - interval '1 second' WHERE token_hash = $1`,
+        [hashToken(expired.token)],
+      );
+      const anonymous = [
+        await http().get('/api/v1/auth/me').expect(401),
+        await http().get(MERCHANTS).expect(401),
+        await expired.attach(http().get('/api/v1/auth/me')).expect(401),
+        await expired.attach(http().get(MERCHANTS)).expect(401),
+      ];
+      for (const res of anonymous) {
+        expect(res.headers[IDLE]).toBeUndefined();
+        expect(res.headers[ABSOLUTE]).toBeUndefined();
+      }
+    });
   });
 
   it('un usuario deshabilitado pierde sus sesiones en la siguiente request', async () => {

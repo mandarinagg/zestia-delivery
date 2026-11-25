@@ -1,4 +1,4 @@
-import type { IncomingMessage } from 'node:http';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import {
   type CanActivate,
   type ExecutionContext,
@@ -17,8 +17,10 @@ export class SessionAuthGuard implements CanActivate {
   constructor(private readonly sessions: SessionService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const http = context.switchToHttp();
     const session = await this.sessions.current(
-      context.switchToHttp().getRequest<IncomingMessage>(),
+      http.getRequest<IncomingMessage>(),
+      http.getResponse<ServerResponse>(),
     );
     if (!session) throw new UnauthorizedException({ statusCode: 401, code: 'UNAUTHENTICATED' });
     return true;

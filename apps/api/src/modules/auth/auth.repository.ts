@@ -24,6 +24,10 @@ export interface SessionRecord {
   readonly sessionId: string;
   readonly userId: string;
   readonly activeTenantId: string | null;
+  /** Segundos hasta el vencimiento por inactividad, ya renovado y sin pasar el absoluto. */
+  readonly idleRemainingSeconds: number;
+  /** Segundos hasta el vencimiento absoluto. */
+  readonly absoluteRemainingSeconds: number;
 }
 
 export interface NewSession {
@@ -101,12 +105,28 @@ export class AuthRepository {
   async findSession(tokenHash: Buffer): Promise<SessionRecord | null> {
     const rows = await this.run(
       (tx) =>
-        tx.$queryRaw<{ session_id: string; user_id: string; active_tenant_id: string | null }[]>`
-        SELECT session_id, user_id, active_tenant_id FROM auth_session_lookup(${tokenHash}::bytea)`,
+        tx.$queryRaw<
+          {
+            session_id: string;
+            user_id: string;
+            active_tenant_id: string | null;
+            idle_remaining_seconds: number;
+            absolute_remaining_seconds: number;
+          }[]
+        >`
+        SELECT session_id, user_id, active_tenant_id, idle_remaining_seconds,
+               absolute_remaining_seconds
+        FROM auth_session_lookup(${tokenHash}::bytea)`,
     );
     const row = rows[0];
     return row
-      ? { sessionId: row.session_id, userId: row.user_id, activeTenantId: row.active_tenant_id }
+      ? {
+          sessionId: row.session_id,
+          userId: row.user_id,
+          activeTenantId: row.active_tenant_id,
+          idleRemainingSeconds: row.idle_remaining_seconds,
+          absoluteRemainingSeconds: row.absolute_remaining_seconds,
+        }
       : null;
   }
 

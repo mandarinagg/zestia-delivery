@@ -1,5 +1,9 @@
-import type { IncomingMessage } from 'node:http';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Inject, Injectable } from '@nestjs/common';
+import {
+  SESSION_ABSOLUTE_REMAINING_HEADER,
+  SESSION_IDLE_REMAINING_HEADER,
+} from '@zestia/contracts';
 import { AUTH_SETTINGS, type AuthSettings } from './auth-settings';
 import { AuthRepository, type SessionRecord } from './auth.repository';
 import { readSessionToken } from './session-cookie';
@@ -9,6 +13,16 @@ import { hashToken } from './tokens';
 export interface CurrentSession extends SessionRecord {
   readonly token: string;
   readonly tokenHash: Buffer;
+}
+
+/** `X-Session-Idle-Remaining` / `X-Session-Absolute-Remaining`, en segundos enteros. */
+export function setRemainingHeaders(
+  res: ServerResponse,
+  idleRemainingSeconds: number,
+  absoluteRemainingSeconds: number,
+): void {
+  res.setHeader(SESSION_IDLE_REMAINING_HEADER, String(idleRemainingSeconds));
+  res.setHeader(SESSION_ABSOLUTE_REMAINING_HEADER, String(absoluteRemainingSeconds));
 }
 
 const CURRENT_SESSION = Symbol('zestia.currentSession');
@@ -34,10 +48,20 @@ export class SessionService {
     return readSessionToken(req, this.settings.cookieSecure);
   }
 
-  current(req: IncomingMessage): Promise<CurrentSession | null> {
+  /**
+   * Sesión válida de la request. Si se pasa `res` y hay sesión, la respuesta lleva cuánto le
+   * queda (`X-Session-Idle-Remaining` y `X-Session-Absolute-Remaining`, en segundos). Lo pasan
+   * los guards, que son el primer punto donde se valida la sesión: así los headers salen
+   * también en un 403 de una sesión válida, y nunca en un 401.
+   */
+  async current(req: IncomingMessage, res?: ServerResponse): Promise<CurrentSession | null> {
     const request = req as RequestWithSession;
     request[CURRENT_SESSION] ??= this.lookup(req);
-    return request[CURRENT_SESSION];
+    const session = await request[CURRENT_SESSION];
+    if (session && res) {
+      setRemainingHeaders(res, session.idleRemainingSeconds, session.absoluteRemainingSeconds);
+    }
+    return session;
   }
 
   /** Olvida la sesión memorizada (después de logout, rotación o cambio de tenant). */

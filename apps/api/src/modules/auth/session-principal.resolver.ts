@@ -1,4 +1,4 @@
-import type { IncomingMessage } from 'node:http';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { type ExecutionContext, Injectable } from '@nestjs/common';
 import type { Principal, PrincipalResolver } from '../tenancy';
 import { SessionService } from './session.service';
@@ -13,8 +13,10 @@ export class SessionPrincipalResolver implements PrincipalResolver {
   constructor(private readonly sessions: SessionService) {}
 
   async resolve(context: ExecutionContext): Promise<Principal | null> {
+    const http = context.switchToHttp();
     const session = await this.sessions.current(
-      context.switchToHttp().getRequest<IncomingMessage>(),
+      http.getRequest<IncomingMessage>(),
+      http.getResponse<ServerResponse>(),
     );
     return session ? { userId: session.userId, activeTenantId: session.activeTenantId } : null;
   }

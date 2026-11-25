@@ -186,6 +186,9 @@ describe('cambio de contraseña (autenticado)', () => {
     expect(cookie?.name).toBe(current.cookieName);
     expect(cookie?.value).not.toBe(current.token);
     expect(res.body.csrfToken).not.toBe(current.csrfToken);
+    // La sesión rotada trae el tiempo restante (inactividad renovada, absoluto igual).
+    expect(Number(res.headers['x-session-idle-remaining'])).toBeGreaterThan(29 * 60);
+    expect(Number(res.headers['x-session-absolute-remaining'])).toBeGreaterThan(12 * 3600 - 60);
 
     const rotated = sessionFrom(cookie!.name, cookie!.value, res.body.csrfToken as string);
     await rotated.attach(http().get('/api/v1/auth/me')).expect(200);
