@@ -1,4 +1,4 @@
-import { act, screen, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { resetToasts } from '@/components/ui/toast';
 import { formatTime } from '@/lib/format';
@@ -13,6 +13,9 @@ import { SESSION_WARNING_MS, formatCountdown } from './session-expiry-notice';
  * servidor (vence, renueva con la actividad, `session-status` no renueva): los vencimientos
  * salen de lo que ella informa en los headers.
  */
+// Cada test adelanta el reloj en tramos de 1 s dentro de `act`: con la máquina cargada tardan.
+vi.setConfig({ testTimeout: 20_000 });
+
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
 });
@@ -108,7 +111,7 @@ describe('aviso por inactividad', () => {
 
     await user.click(screen.getByRole('button', { name: 'Seguir conectado' }));
 
-    await vi.waitFor(() => expect(warning()).not.toBeInTheDocument());
+    await waitFor(() => expect(warning()).not.toBeInTheDocument());
     expect(count('me')).toBe(me + 1);
     expect(count('session-status')).toBe(0);
     // Renovó de verdad: vuelve a avisar 28 minutos después, no antes.
@@ -125,7 +128,7 @@ describe('aviso por inactividad', () => {
 
     await user.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
 
-    await vi.waitFor(() => expect(router.state.location.pathname).toBe('/ingreso'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/ingreso'));
     expect(fakeApi.requests.some((r) => r.path === '/api/v1/auth/logout')).toBe(true);
     expect(fakeApi.session).toBeNull();
   });
@@ -155,7 +158,7 @@ describe('al llegar a cero (pregunta con session-status, que no renueva)', () =>
 
     await advance(121_000);
 
-    await vi.waitFor(() => expect(router.state.location.pathname).toBe('/ingreso'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/ingreso'));
     expect(count('session-status')).toBe(1);
     expect(count('me')).toBe(me); // el chequeo nunca renueva
     expect(router.state.location.search).toMatchObject({ reason: 'idle' });
@@ -172,14 +175,14 @@ describe('al llegar a cero (pregunta con session-status, que no renueva)', () =>
     fakeApi.renewElsewhere(); // otra pestaña usó la sesión; esta todavía no lo sabe
     await advance(121_000);
 
-    await vi.waitFor(() => expect(warning()).not.toBeInTheDocument());
+    await waitFor(() => expect(warning()).not.toBeInTheDocument());
     expect(count('session-status')).toBe(1);
     expect(router.state.location.pathname).toBe('/panel/');
     expect(fakeApi.session).not.toBeNull();
     // El aviso nuevo cuenta desde la renovación de la otra pestaña (hace ~2 min), no desde ahora.
     await advance(20 * 60_000);
     expect(warning()).not.toBeInTheDocument();
-    await advance(8 * 60_000);
+    await advance(7 * 60_000);
     expect(await screen.findByRole('alertdialog')).toBeInTheDocument();
   });
 
@@ -193,7 +196,7 @@ describe('al llegar a cero (pregunta con session-status, que no renueva)', () =>
     expect(router.state.location.pathname).toBe('/panel/');
 
     await advance(4_000); // restante + 2 s: pregunta de nuevo y ahora sí venció
-    await vi.waitFor(() => expect(router.state.location.pathname).toBe('/ingreso'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/ingreso'));
     expect(count('session-status')).toBe(2);
     expect(count('me')).toBe(1); // solo la carga del panel
   });
@@ -217,7 +220,7 @@ describe('varias pestañas', () => {
       );
     });
 
-    await vi.waitFor(() => expect(warning()).not.toBeInTheDocument());
+    await waitFor(() => expect(warning()).not.toBeInTheDocument());
     expect([count('me'), count('session-status')]).toEqual(asked);
   });
 
@@ -272,7 +275,7 @@ describe('aviso del tiempo máximo de la sesión', () => {
 
     await advance(121_000);
 
-    await vi.waitFor(() => expect(router.state.location.pathname).toBe('/ingreso'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/ingreso'));
     expect(count('session-status')).toBe(1);
     expect(await screen.findByText(/llegó a su duración máxima/)).toBeInTheDocument();
   });
@@ -288,7 +291,7 @@ describe('aviso del tiempo máximo de la sesión', () => {
     expect(router.state.location.pathname).toBe('/panel/');
 
     await advance(4_000);
-    await vi.waitFor(() => expect(router.state.location.pathname).toBe('/ingreso'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/ingreso'));
     expect(count('session-status')).toBe(2);
   });
 
