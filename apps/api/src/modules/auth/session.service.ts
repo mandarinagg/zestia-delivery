@@ -54,9 +54,14 @@ export class SessionService {
    * los guards, que son el primer punto donde se valida la sesión: así los headers salen
    * también en un 403 de una sesión válida, y nunca en un 401.
    */
-  async current(req: IncomingMessage, res?: ServerResponse): Promise<CurrentSession | null> {
+  async current(
+    req: IncomingMessage,
+    res?: ServerResponse,
+    options: { readonly renew?: boolean } = {},
+  ): Promise<CurrentSession | null> {
     const request = req as RequestWithSession;
-    request[CURRENT_SESSION] ??= this.lookup(req);
+    // Un pedido tiene UNA consulta de sesión: la primera (la del guard) decide si renueva.
+    request[CURRENT_SESSION] ??= this.lookup(req, options.renew ?? true);
     const session = await request[CURRENT_SESSION];
     if (session && res) {
       setRemainingHeaders(res, session.idleRemainingSeconds, session.absoluteRemainingSeconds);
@@ -69,11 +74,11 @@ export class SessionService {
     delete (req as RequestWithSession)[CURRENT_SESSION];
   }
 
-  private async lookup(req: IncomingMessage): Promise<CurrentSession | null> {
+  private async lookup(req: IncomingMessage, renew: boolean): Promise<CurrentSession | null> {
     const token = this.tokenFrom(req);
     if (!token) return null;
     const tokenHash = hashToken(token);
-    const record = await this.repository.findSession(tokenHash);
+    const record = await this.repository.findSession(tokenHash, renew);
     return record ? { ...record, token, tokenHash } : null;
   }
 }

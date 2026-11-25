@@ -241,10 +241,11 @@ describe('login, sesión y logout (/api/v1/auth)', () => {
 
       const me = await session.attach(http().get('/api/v1/auth/me')).expect(200);
       expect(seconds(me.headers[IDLE])).toBeGreaterThan(29 * 60);
-      expect(seconds(me.headers[IDLE])).toBeLessThanOrEqual(30 * 60);
+      // `idle_expires_at` guarda milisegundos y redondea hacia arriba: con `ceil` puede sobrar 1 s.
+      expect(seconds(me.headers[IDLE])).toBeLessThanOrEqual(30 * 60 + 1);
       // Absoluto: 12 h desde el login (menos unos segundos).
       expect(seconds(me.headers[ABSOLUTE])).toBeGreaterThan(12 * 3600 - 60);
-      expect(seconds(me.headers[ABSOLUTE])).toBeLessThanOrEqual(12 * 3600);
+      expect(seconds(me.headers[ABSOLUTE])).toBeLessThanOrEqual(12 * 3600 + 1);
 
       // Ruta de tenant: el comercio no existe (404), pero la sesión es válida: lleva los headers.
       const tenant = await session.attach(http().get(MERCHANTS)).expect(404);
@@ -278,6 +279,108 @@ describe('login, sesión y logout (/api/v1/auth)', () => {
       expect(absolute).toBeGreaterThan(40);
       expect(absolute).toBeLessThanOrEqual(45);
       expect(idle).toBeLessThanOrEqual(absolute);
+    });
+
+    describe('GET /auth/session-status (consulta sin renovar)', () => {
+      const STATUS = '/api/v1/auth/session-status';
+      const timesOf = async (token: string) => {
+        const [row] = await seeder.query<{ idle: string; seen: string }>(
+          `SELECT idle_expires_at::text AS idle, last_seen_at::text AS seen
+           FROM sessions WHERE token_hash = $1`,
+          [hashToken(token)],
+        );
+        return row!;
+      };
+      /** Última actividad vieja (fuera de la regla de 60 s) y 90 s de inactividad por delante. */
+      const agedSession = async (token: string) => {
+        await seeder.query(
+          `UPDATE sessions SET last_seen_at = now() - interval '5 minutes',
+                  idle_expires_at = now() + interval '90 seconds' WHERE token_hash = $1`,
+          [hashToken(token)],
+        );
+        return timesOf(token);
+      };
+
+      it('204 con los headers y SIN tocar idle_expires_at ni last_seen_at', async () => {
+        const { email } = await memberWithPassword();
+        const session = await login(app, email, PASSWORD);
+        const before = await agedSession(session.token);
+
+        const res = await session.attach(http().get(STATUS)).expect(204);
+        expect(res.headers['cache-control']).toBe('no-store');
+        expect(res.text).toBe('');
+        expect(seconds(res.headers[IDLE])).toBeGreaterThan(85);
+        expect(seconds(res.headers[IDLE])).toBeLessThanOrEqual(90);
+        expect(await timesOf(session.token)).toEqual(before);
+      });
+
+      it('en cambio /auth/me y una ruta normal SÍ renuevan (misma sesión, mismo estado de partida)', async () => {
+        const { email } = await memberWithPassword();
+        const viaMe = await login(app, email, PASSWORD);
+        const viaTenant = await login(app, email, PASSWORD);
+        const beforeMe = await agedSession(viaMe.token);
+        const beforeTenant = await agedSession(viaTenant.token);
+
+        await viaMe.attach(http().get('/api/v1/auth/me')).expect(200);
+        await viaTenant.attach(http().get(MERCHANTS)).expect(404);
+
+        for (const [token, before] of [
+          [viaMe.token, beforeMe],
+          [viaTenant.token, beforeTenant],
+        ] as const) {
+          const after = await timesOf(token);
+          expect(after.idle).not.toBe(before.idle);
+          expect(after.seen).not.toBe(before.seen);
+        }
+        const res = await viaMe.attach(http().get(STATUS)).expect(204);
+        expect(seconds(res.headers[IDLE])).toBeGreaterThan(29 * 60);
+      });
+
+      it('401 sin sesión, con sesión vencida y sin renovarla antes de vencer del todo', async () => {
+        const { email } = await memberWithPassword();
+        const expired = await login(app, email, PASSWORD);
+        await seeder.query(
+          `UPDATE sessions SET idle_expires_at = now() - interval '1 second' WHERE token_hash = $1`,
+          [hashToken(expired.token)],
+        );
+        for (const res of [
+          await http().get(STATUS).expect(401),
+          await expired.attach(http().get(STATUS)).expect(401),
+        ]) {
+          expect(res.headers[IDLE]).toBeUndefined();
+          expect(res.headers[ABSOLUTE]).toBeUndefined();
+        }
+      });
+
+      it('solo habla de la sesión propia: sin cuerpo y con los tiempos de quien pregunta', async () => {
+        const a = await memberWithPassword('Ana');
+        const b = await memberWithPassword('Beto');
+        const sessionA = await login(app, a.email, PASSWORD);
+        const sessionB = await login(app, b.email, PASSWORD);
+        await seeder.query(
+          `UPDATE sessions SET absolute_expires_at = now() + interval '1000 seconds' WHERE token_hash = $1`,
+          [hashToken(sessionA.token)],
+        );
+        await seeder.query(
+          `UPDATE sessions SET absolute_expires_at = now() + interval '5000 seconds' WHERE token_hash = $1`,
+          [hashToken(sessionB.token)],
+        );
+
+        const resA = await sessionA.attach(http().get(STATUS)).expect(204);
+        const resB = await sessionB.attach(http().get(STATUS)).expect(204);
+        expect(seconds(resA.headers[ABSOLUTE])).toBeLessThanOrEqual(1000);
+        expect(seconds(resA.headers[ABSOLUTE])).toBeGreaterThan(990);
+        expect(seconds(resB.headers[ABSOLUTE])).toBeGreaterThan(4990);
+        for (const res of [resA, resB]) {
+          expect(res.text).toBe('');
+          expect(Object.keys(res.headers).filter((h) => /user|tenant|email/i.test(h))).toEqual([]);
+        }
+        // Una cookie de otra persona no sirve: no hay forma de preguntar por una sesión ajena.
+        await http()
+          .get(STATUS)
+          .set('Cookie', `${sessionA.cookieName}=${'x'.repeat(43)}`)
+          .expect(401);
+      });
     });
 
     it('no aparecen sin sesión ni con una sesión vencida', async () => {

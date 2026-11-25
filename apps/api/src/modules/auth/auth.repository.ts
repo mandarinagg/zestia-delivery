@@ -102,7 +102,8 @@ export class AuthRepository {
     return rows[0]?.session_id ?? null;
   }
 
-  async findSession(tokenHash: Buffer): Promise<SessionRecord | null> {
+  /** Con `renew = false` valida y devuelve los restantes sin alargar la sesión (`session-status`). */
+  async findSession(tokenHash: Buffer, renew = true): Promise<SessionRecord | null> {
     const rows = await this.run(
       (tx) =>
         tx.$queryRaw<
@@ -116,7 +117,7 @@ export class AuthRepository {
         >`
         SELECT session_id, user_id, active_tenant_id, idle_remaining_seconds,
                absolute_remaining_seconds
-        FROM auth_session_lookup(${tokenHash}::bytea)`,
+        FROM auth_session_lookup(${tokenHash}::bytea, ${renew}::boolean)`,
     );
     const row = rows[0];
     return row

@@ -36,7 +36,7 @@ import { TenantExempt } from '../tenancy';
 import { AUTH_SETTINGS, type AuthSettings } from './auth-settings';
 import { AuthService, type RateLimited, type RequestMeta } from './auth.service';
 import { SkipCsrfToken } from './csrf.guard';
-import { SessionAuthGuard } from './session-auth.guard';
+import { NoSessionRenewal, SessionAuthGuard } from './session-auth.guard';
 import { clearSessionCookie, setSessionCookie } from './session-cookie';
 import { type CurrentSession, SessionService, setRemainingHeaders } from './session.service';
 import { deriveCsrfToken } from './tokens';
@@ -115,6 +115,21 @@ export class AuthController {
     const view = await this.auth.sessionView(await this.requireSession(req));
     if (!view) throw unauthenticated();
     return view;
+  }
+
+  /**
+   * Cuánto le queda a la sesión, SIN renovarla: 204 sin cuerpo y los headers
+   * `X-Session-*-Remaining` (los pone el guard). El panel lo usa al llegar a cero para saber si
+   * otra pestaña renovó, sin que la pregunta alargue la sesión. Solo devuelve los tiempos de la
+   * sesión de la cookie: nada de otro usuario ni de otro tenant.
+   */
+  @Get('session-status')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Header('Cache-Control', 'no-store')
+  @UseGuards(SessionAuthGuard)
+  @NoSessionRenewal('consulta de estado: no puede alargar la sesión')
+  sessionStatus(): void {
+    /* los headers los puso SessionAuthGuard */
   }
 
   @Post('switch-tenant')
