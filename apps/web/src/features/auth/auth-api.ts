@@ -18,6 +18,11 @@ export const authApi = {
       schema: authSessionResponseSchema,
     }),
   logout: (): Promise<void> => api('/auth/logout', { method: 'POST' }),
+  /**
+   * Estado de la sesión SIN renovarla (204; los tiempos vienen en los headers que lee
+   * `lib/api.ts`). 401 si la sesión ya terminó.
+   */
+  sessionStatus: (): Promise<void> => api('/auth/session-status'),
   switchTenant: (tenantId: string): Promise<Session> =>
     api('/auth/switch-tenant', {
       method: 'POST',

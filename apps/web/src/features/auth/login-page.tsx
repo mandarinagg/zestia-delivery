@@ -1,7 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { Info } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
@@ -12,7 +11,7 @@ import { activeMembership, homeFor, storeSession } from '@/lib/session';
 import { clearSessionDeadlines } from '@/lib/session-clock';
 import { AuthShell, PasswordField, authLinkClass } from './auth-shell';
 import { authApi, loginSchema, safeRedirect, type LoginValues } from './auth-api';
-import { FormAlert } from './form-alert';
+import { FormAlert, FormNotice } from './form-alert';
 
 /**
  * Ingreso con correo y contraseña (`POST /auth/login`). La sesión queda en una cookie httpOnly;
@@ -44,15 +43,11 @@ export function LoginPage({
   return (
     <AuthShell title="Ingresá al panel" lead="Con el correo de tu empresa.">
       {reason && !error ? (
-        <p
-          role="status"
-          className="mt-6 flex gap-2.5 rounded-md border border-tone-blue-solid/40 bg-tone-blue-bg p-3 text-sm text-tone-blue-fg"
-        >
-          <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+        <FormNotice>
           {reason === 'idle'
             ? 'Tu sesión se cerró por inactividad. Ingresá de nuevo para seguir.'
             : 'Tu sesión llegó a su duración máxima. Ingresá de nuevo para seguir.'}
-        </p>
+        </FormNotice>
       ) : null}
       {error ? <FormAlert>{error}</FormAlert> : null}
 

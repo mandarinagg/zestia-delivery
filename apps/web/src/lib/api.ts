@@ -1,6 +1,6 @@
 import { CSRF_HEADER, errorResponseSchema } from '@zestia/contracts';
 import type { z } from 'zod';
-import { recordSessionHeaders } from './session-clock';
+import { recordSessionHeaders, sessionGeneration } from './session-clock';
 
 /**
  * Cliente HTTP de la API. Misma origen que la web (`/api/...`, proxy de Vite en desarrollo):
@@ -59,6 +59,9 @@ export async function api<S extends z.ZodType | undefined = undefined>(
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';
   if (method !== 'GET' && csrfToken) headers[CSRF_HEADER] = csrfToken;
 
+  // Generación de la sesión al salir el pedido: si cambia (logout, login, 401), la respuesta
+  // no puede tocar los vencimientos.
+  const generation = sessionGeneration();
   let response: Response;
   try {
     response = await fetch(`/api/v1${path}`, {
@@ -73,9 +76,10 @@ export async function api<S extends z.ZodType | undefined = undefined>(
     throw new NetworkError();
   }
 
+  // Toda respuesta de una sesión válida dice cuánto le queda (aviso antes del vencimiento),
+  // también un 403 o un 404; un 401 no trae nada (y la sesión ya no existe).
+  if (response.status !== 401) recordSessionHeaders(response.headers, generation);
   if (!response.ok) throw await toApiError(response);
-  // Toda respuesta de una sesión válida dice cuánto le queda (aviso antes del vencimiento).
-  recordSessionHeaders(response.headers);
   if (!options.schema || response.status === 204) {
     return undefined as S extends z.ZodType ? z.output<S> : void;
   }

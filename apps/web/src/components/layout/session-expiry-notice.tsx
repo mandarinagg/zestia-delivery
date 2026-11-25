@@ -3,9 +3,11 @@
  *
  * Qué sabe: los segundos restantes que informó la API en cada respuesta (`lib/session-clock.ts`,
  * compartidos entre pestañas). Qué NO hace: confiar en su reloj para cerrar la sesión. Al llegar
- * a cero le pregunta al servidor (`GET /auth/me`): 401 → ingreso con el motivo; 200 → otra
- * pestaña la renovó, no pasa nada. Ese pedido renueva la sesión, así que se hace SOLO al llegar
- * a cero y a pedido de la persona ("Seguir conectado"), nunca en polling.
+ * a cero le pregunta al servidor con `GET /auth/session-status`, que NO renueva la sesión (si no,
+ * un panel abandonado se mantendría vivo solo): 401 → ingreso con el motivo; 200 con un
+ * vencimiento más tardío → otra pestaña la renovó, no pasa nada; 200 sin moverlo → quedaban
+ * fracciones de segundo, se vuelve a preguntar un poco después. Lo único del aviso que renueva
+ * es "Seguir conectado" (`GET /auth/me`), a pedido de la persona. Nunca hay polling.
  *
  * Timers: un solo `setTimeout`, reprogramado cada vez que cambian los vencimientos (llega hasta
  * el aviso, o hasta el vencimiento si ya se descartó), y un intervalo de 1 s solo mientras el
@@ -15,6 +17,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { authApi } from '@/features/auth/auth-api';
 import { useLogout } from '@/features/auth/use-logout';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,6 +31,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/toast';
 import { formatTime } from '@/lib/format';
+import { ApiError } from '@/lib/api';
 import { getSessionDeadlines, subscribeSessionDeadlines } from '@/lib/session-clock';
 import { sessionQuery, storeSession } from '@/lib/session';
 
@@ -40,6 +44,14 @@ export const SESSION_WARNING_MS = 2 * 60 * 1000;
  * con algo de desfase.)
  */
 const ABSOLUTE_TOLERANCE_MS = 5_000;
+
+const WARNING_MINUTES = SESSION_WARNING_MS / 60_000;
+
+/** Un vencimiento que sube más que esto entre dos respuestas es una renovación, no desfase. */
+const RENEWAL_TOLERANCE_MS = 5_000;
+
+/** Si la sesión seguía válida por fracciones de segundo, se vuelve a preguntar después de esto. */
+const RETRY_MARGIN_MS = 2_000;
 
 export type SessionEndReason = 'idle' | 'absolute';
 
@@ -59,6 +71,8 @@ export function SessionExpiryNotice() {
   const [now, setNow] = useState(() => Date.now());
   const [dismissedAbsolute, setDismissedAbsolute] = useState<number | null>(null);
   const [renewing, setRenewing] = useState(false);
+  /** Próxima pregunta al servidor cuando la anterior encontró la sesión viva por fracciones. */
+  const [retry, setRetry] = useState<{ for: number; at: number } | null>(null);
   /** Vencimiento para el que ya se le preguntó al servidor: no se repite hasta que cambie. */
   const checkedFor = useRef<number | null>(null);
 
@@ -68,60 +82,78 @@ export function SessionExpiryNotice() {
   const dismissed = reason === 'absolute' && deadlines?.absolute === dismissedAbsolute;
   // `now` solo lo mueven los timers de abajo: si los vencimientos cambian (otra pestaña
   // renovó), el aviso se cierra solo porque el nuevo vencimiento queda lejos de `now`.
-  const visible = end !== null && !dismissed && now >= end - SESSION_WARNING_MS;
+  const warned = end !== null && now >= end - SESSION_WARNING_MS;
+  const due = end !== null && now >= end;
+  const visible = warned && !dismissed;
 
-  /** Pregunta al servidor si la sesión sigue. 401 → ingreso; 200 → los headers ya movieron los vencimientos. */
-  async function askServer(why: SessionEndReason): Promise<boolean> {
-    const session = await queryClient.fetchQuery({ ...sessionQuery, staleTime: 0 });
-    if (session) return true;
+  /** 401 en cualquier pregunta: la sesión terminó. Limpia todo y va al ingreso con el motivo. */
+  async function endSession(why: SessionEndReason) {
     queryClient.clear();
     storeSession(queryClient, null);
     await router.navigate({
       to: '/ingreso',
       search: { redirect: router.state.location.href, reason: why },
     });
-    return false;
   }
 
-  function askOnce(at: number, why: SessionEndReason) {
+  /** Pregunta al servidor SIN renovar. Ver el comentario del archivo para cada resultado. */
+  async function checkStatus(at: number, why: SessionEndReason) {
     if (checkedFor.current === at) return;
     checkedFor.current = at;
-    // Sin red: queda el diálogo con 00:00 y "Seguir conectado" para reintentar.
-    void askServer(why).catch(() => undefined);
+    try {
+      await authApi.sessionStatus();
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) await endSession(why);
+      // Sin red u otro error: queda el diálogo con 00:00 y "Seguir conectado" para reintentar.
+      return;
+    }
+    const after = getSessionDeadlines();
+    if (!after) return; // la sesión se cerró mientras tanto (logout, otra pestaña)
+    const newEnd = Math.min(after.idle, after.absolute);
+    if (newEnd > at + RENEWAL_TOLERANCE_MS) return; // renovó otra pestaña: se cierra el aviso
+    // Seguía válida por fracciones de segundo: volver a preguntar apenas pase lo que queda.
+    checkedFor.current = null;
+    setRetry({ for: newEnd, at: Math.max(Date.now(), newEnd) + RETRY_MARGIN_MS });
   }
 
-  // Un solo timeout hasta el próximo hito: el aviso, o el vencimiento si el aviso ya se descartó.
+  // Un solo timeout hasta el próximo hito: el aviso, el vencimiento (hora de preguntar) o el
+  // reintento. Se reprograma cuando cambia cualquiera de esos datos.
   useEffect(() => {
     if (end === null) return;
-    const target = dismissed ? end : end - SESSION_WARNING_MS;
+    const target =
+      retry?.for === end
+        ? retry.at
+        : due
+          ? Date.now()
+          : warned || dismissed
+            ? end
+            : end - SESSION_WARNING_MS;
     const id = window.setTimeout(
       () => {
-        setNow(Math.max(Date.now(), target));
-        if (Date.now() >= end) askOnce(end, reason);
+        const t = Math.max(Date.now(), target);
+        setNow(t);
+        if (t >= end) void checkStatus(end, reason);
       },
       Math.max(0, target - Date.now()),
     );
     return () => window.clearTimeout(id);
-    // `askOnce` solo toca refs y el cliente de queries: no hace falta reprogramar por él.
+    // `checkStatus` solo usa refs, el cliente de queries y el router: no hace falta reprogramar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deadlines, dismissed]);
+  }, [deadlines, dismissed, warned, due, retry]);
 
   // Cuenta regresiva: un intervalo de 1 s, solo con el diálogo a la vista.
   useEffect(() => {
-    if (!visible || end === null) return;
-    const id = window.setInterval(() => {
-      const t = Date.now();
-      setNow(t);
-      if (t >= end) askOnce(end, reason);
-    }, 1000);
+    if (!visible) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, end]);
+  }, [visible]);
 
   async function keepAlive() {
     setRenewing(true);
     try {
-      await askServer(reason);
+      // La única vía del aviso que renueva (GET /auth/me); 401 → la sesión ya había terminado.
+      const session = await queryClient.fetchQuery({ ...sessionQuery, staleTime: 0 });
+      if (!session) await endSession(reason);
     } catch {
       toast({
         tone: 'danger',
@@ -147,7 +179,8 @@ export function SessionExpiryNotice() {
           <DialogHeader>
             <DialogTitle>Tu sesión está por terminar</DialogTitle>
             <DialogDescription>
-              Tu sesión termina a las {at}. Guardá tus cambios y volvé a ingresar.
+              Tu sesión termina a las {at}, en menos de {WARNING_MINUTES} minutos. Guardá tus
+              cambios y volvé a ingresar.
             </DialogDescription>
           </DialogHeader>
           <DialogBody>
@@ -175,8 +208,8 @@ export function SessionExpiryNotice() {
         <DialogHeader>
           <DialogTitle>Tu sesión va a cerrarse por inactividad</DialogTitle>
           <DialogDescription>
-            Por seguridad, la sesión se cierra después de un rato sin uso. Si querés seguir,
-            avisanos antes de que termine el tiempo.
+            Por seguridad, la sesión se cierra después de un rato sin uso, y eso va a pasar en menos
+            de {WARNING_MINUTES} minutos. Si querés seguir, tocá “Seguir conectado”.
           </DialogDescription>
         </DialogHeader>
         <DialogBody>

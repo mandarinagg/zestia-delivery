@@ -128,12 +128,18 @@ class FakeApi {
   /** El próximo cambio de contraseña responde 429 con `Retry-After` en segundos. */
   changePasswordRetryAfter: number | null = null;
   /**
-   * Segundos restantes que la API informa en `X-Session-Idle-Remaining` y
-   * `X-Session-Absolute-Remaining` (como el servidor, solo en respuestas de una sesión válida).
-   * `null` = no manda el header.
+   * Reloj de la sesión, como el servidor real: vence por inactividad y por tiempo máximo, la
+   * actividad renueva el de inactividad (como mucho una vez por minuto, sin pasar el absoluto),
+   * `GET /auth/session-status` NO renueva, y toda respuesta de una sesión válida (menos un 401)
+   * lleva los segundos restantes redondeados hacia arriba. Va con el reloj de `Date.now()`, así
+   * que los tests con timers falsos avanzan el vencimiento solos. Ver `setSessionTimes`.
    */
-  idleRemaining: number | null = 30 * 60;
-  absoluteRemaining: number | null = 12 * 3600;
+  idleTimeoutSeconds = 30 * 60;
+  /** El servidor sigue dando por válida la sesión este tiempo después de vencida (fracciones). */
+  expiryGraceMs = 0;
+  private idleDeadline = 0;
+  private absoluteDeadline = 0;
+  private lastSeen = 0;
   /** Token CSRF de la sesión: cambia cuando la sesión rota (cambio de contraseña). */
   csrf = CSRF;
   /** Comercios y sucursales (`/merchants`), por empresa. */
@@ -157,10 +163,37 @@ class FakeApi {
     this.loginRetryAfter = null;
     this.changePasswordRetryAfter = null;
     this.csrf = CSRF;
-    this.idleRemaining = 30 * 60;
-    this.absoluteRemaining = 12 * 3600;
+    this.idleTimeoutSeconds = 30 * 60;
+    this.expiryGraceMs = 0;
+    this.startSessionClock();
     const as = options.as === undefined ? OWNER : options.as;
     this.session = as ? { userId: as.id, activeTenantId: this.defaultTenant(as) } : null;
+  }
+
+  /** Sesión nueva: inactividad completa y 12 h de tiempo máximo. */
+  private startSessionClock(): void {
+    const now = Date.now();
+    this.lastSeen = now;
+    this.absoluteDeadline = now + 12 * 3600_000;
+    this.idleDeadline = now + this.idleTimeoutSeconds * 1000;
+  }
+
+  /** Fija cuánto le queda a la sesión (segundos desde ahora) y la marca como recién usada. */
+  setSessionTimes(times: { idle?: number; absolute?: number }): void {
+    const now = Date.now();
+    this.lastSeen = now;
+    if (times.absolute !== undefined) this.absoluteDeadline = now + times.absolute * 1000;
+    if (times.idle !== undefined) this.idleDeadline = now + times.idle * 1000;
+  }
+
+  /** Otra pestaña usó la sesión: renovó la inactividad (como cualquier pedido normal). */
+  renewElsewhere(): void {
+    this.renew(Date.now());
+  }
+
+  private renew(now: number): void {
+    this.lastSeen = now;
+    this.idleDeadline = Math.min(now + this.idleTimeoutSeconds * 1000, this.absoluteDeadline);
   }
 
   /** Simula que el servidor venció la sesión (inactividad, logout en otra pestaña). */
@@ -170,15 +203,30 @@ class FakeApi {
 
   readonly fetch = async (input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> => {
     if (this.offline) throw new TypeError('Failed to fetch');
+    const now = Date.now();
+    const path = new URL(String(input), 'http://web.test').pathname.replace(/^\/api\/v1/, '');
+    // Vencida (por inactividad o por tiempo máximo): como la API, ya no hay sesión.
+    if (
+      this.session &&
+      (this.idleDeadline + this.expiryGraceMs <= now ||
+        this.absoluteDeadline + this.expiryGraceMs <= now)
+    ) {
+      this.session = null;
+    }
+    // La actividad renueva, salvo la consulta de estado y no más de una vez por minuto.
+    if (this.session && path !== '/auth/session-status' && now - this.lastSeen > 60_000) {
+      this.renew(now);
+    }
     const response = await this.handle(input, init);
     // Como la API: tiempo restante en toda respuesta de una sesión válida, nunca en un 401.
     if (this.session && response.status !== 401) {
-      if (this.idleRemaining !== null) {
-        response.headers.set(SESSION_IDLE_REMAINING_HEADER, String(this.idleRemaining));
-      }
-      if (this.absoluteRemaining !== null) {
-        response.headers.set(SESSION_ABSOLUTE_REMAINING_HEADER, String(this.absoluteRemaining));
-      }
+      const absolute = Math.max(1, Math.ceil((this.absoluteDeadline - now) / 1000));
+      const idle = Math.max(
+        1,
+        Math.ceil((Math.min(this.idleDeadline, this.absoluteDeadline) - now) / 1000),
+      );
+      response.headers.set(SESSION_IDLE_REMAINING_HEADER, String(idle));
+      response.headers.set(SESSION_ABSOLUTE_REMAINING_HEADER, String(absolute));
     }
     return response;
   };
@@ -211,6 +259,8 @@ class FakeApi {
     switch (`${method} ${path}`) {
       case 'GET /auth/me':
         return this.session ? json(200, this.sessionBody()) : error(401, 'UNAUTHENTICATED');
+      case 'GET /auth/session-status':
+        return this.session ? new Response(null, { status: 204 }) : error(401, 'UNAUTHENTICATED');
       case 'POST /auth/login': {
         if (this.loginRetryAfter !== null) {
           return error(429, 'TOO_MANY_ATTEMPTS', { 'Retry-After': String(this.loginRetryAfter) });
@@ -219,6 +269,7 @@ class FakeApi {
         const user = this.users.find((u) => u.email === email.trim().toLowerCase());
         if (!user || user.password !== password) return error(401, 'INVALID_CREDENTIALS');
         this.session = { userId: user.id, activeTenantId: this.defaultTenant(user) };
+        this.startSessionClock();
         return json(200, this.sessionBody());
       }
       case 'POST /auth/logout':

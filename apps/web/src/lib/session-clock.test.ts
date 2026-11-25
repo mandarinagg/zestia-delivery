@@ -1,11 +1,16 @@
 import {
   SESSION_DEADLINES_KEY,
+  SESSION_GENERATION_KEY,
+  sessionGeneration,
   clearSessionDeadlines,
   getSessionDeadlines,
   recordSessionHeaders,
   recordSessionRemaining,
   subscribeSessionDeadlines,
 } from './session-clock';
+
+const stored = (idle: number, absolute: number, gen = sessionGeneration()) =>
+  JSON.stringify({ idle, absolute, gen });
 
 describe('vencimientos de la sesión', () => {
   it('convierte los segundos restantes en instantes de este reloj', () => {
@@ -42,6 +47,7 @@ describe('vencimientos de la sesión', () => {
     expect(JSON.parse(window.localStorage.getItem(SESSION_DEADLINES_KEY)!)).toEqual({
       idle: 65_000,
       absolute: 125_000,
+      gen: sessionGeneration(),
     });
     expect(listener).toHaveBeenCalledTimes(1);
     recordSessionRemaining(60, 120, 5_000); // igual: sin cambios, sin aviso
@@ -54,7 +60,7 @@ describe('vencimientos de la sesión', () => {
     window.dispatchEvent(
       new StorageEvent('storage', {
         key: SESSION_DEADLINES_KEY,
-        newValue: JSON.stringify({ idle: 300_000, absolute: 100_000 }),
+        newValue: stored(300_000, 100_000),
       }),
     );
     expect(getSessionDeadlines()).toEqual({ idle: 300_000, absolute: 600_000 });
@@ -80,5 +86,55 @@ describe('vencimientos de la sesión', () => {
     clearSessionDeadlines();
     expect(getSessionDeadlines()).toBeNull();
     expect(window.localStorage.getItem(SESSION_DEADLINES_KEY)).toBeNull();
+  });
+
+  describe('generación de la sesión', () => {
+    it('sube con cada logout, 401 o login (clear) y se comparte por localStorage', () => {
+      const before = sessionGeneration();
+      clearSessionDeadlines();
+      expect(sessionGeneration()).toBe(before + 1);
+      expect(window.localStorage.getItem(SESSION_GENERATION_KEY)).toBe(String(before + 1));
+    });
+
+    it('una respuesta de una generación anterior no revive los vencimientos', () => {
+      const started = sessionGeneration(); // el pedido sale
+      clearSessionDeadlines(); // logout (o login de otra persona) mientras vuela
+      recordSessionRemaining(1800, 43200, Date.now(), started);
+      expect(getSessionDeadlines()).toBeNull();
+      recordSessionHeaders(
+        new Headers({ 'X-Session-Idle-Remaining': '60', 'X-Session-Absolute-Remaining': '90' }),
+        started,
+      );
+      expect(getSessionDeadlines()).toBeNull();
+      // Un pedido de la generación vigente sí cuenta.
+      recordSessionRemaining(60, 90, Date.now(), sessionGeneration());
+      expect(getSessionDeadlines()).not.toBeNull();
+    });
+
+    it('si otra pestaña cierra o abre una sesión, lo de esta también se descarta', () => {
+      recordSessionRemaining(60, 600, 0);
+      const started = sessionGeneration();
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: SESSION_GENERATION_KEY,
+          newValue: String(started + 1),
+        }),
+      );
+      expect(sessionGeneration()).toBe(started + 1);
+      expect(getSessionDeadlines()).toBeNull();
+      recordSessionRemaining(60, 600, 0, started); // pedido viejo de esta pestaña
+      expect(getSessionDeadlines()).toBeNull();
+    });
+
+    it('ignora lo que llega de otra pestaña con una generación anterior', () => {
+      clearSessionDeadlines();
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: SESSION_DEADLINES_KEY,
+          newValue: stored(900_000, 900_000, sessionGeneration() - 1),
+        }),
+      );
+      expect(getSessionDeadlines()).toBeNull();
+    });
   });
 });
