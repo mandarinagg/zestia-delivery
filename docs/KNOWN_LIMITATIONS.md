@@ -20,8 +20,13 @@ Lista honesta de lo que el sistema **no** hace (o aún no). Se actualiza en cada
 - R1 en curso: monorepo (#13), multi-tenancy con RLS (#15) y autenticación con sesiones de servidor (#14).
 - **Autenticación en la web:** ingreso, selector de empresa, cambio de empresa, cierre de sesión, olvidé y restablecer contraseña conectados a la API. Todavía no hay:
   - cambio de contraseña para Repartidor y Comercio: está en el menú de usuario del panel, y esos roles todavía no tienen su app (R2); pueden usar "Olvidé mi contraseña";
-  - "mis sesiones";
-  - un aviso antes de que venza la sesión por inactividad (al vencer, el próximo pedido manda al ingreso).
+  - "mis sesiones".
+- **Aviso de vencimiento de sesión (#14):** el panel avisa 2 minutos antes (por inactividad o por tiempo máximo). Límites:
+  - "Inactividad" es **actividad contra la API**, no mouse o teclado: quien pasa media hora escribiendo un formulario sin que la pantalla haga ningún pedido ve el aviso y tiene que tocar "Seguir conectado".
+  - Solo está en el panel (`/panel/*`): `/comercio`, `/repartidor`, los prototipos y las pantallas públicas no avisan. Sin el aviso, al vencer la sesión el próximo pedido manda al ingreso (con `redirect`, sin motivo).
+  - La hora de fin del aviso por tiempo máximo se muestra en `America/Asuncion`: la sesión todavía no trae la zona horaria del tenant.
+  - Con el equipo suspendido o la pestaña en segundo plano, los timers del navegador se atrasan: el aviso puede llegar tarde, pero al llegar a cero siempre se le pregunta al servidor.
+  - Los vencimientos se comparten entre pestañas con `localStorage`; sin `localStorage` (modo privado estricto), cada pestaña avisa con lo que le informó la API.
 - Sin CORS: la web y la API se sirven desde el mismo origen. En desarrollo lo resuelve el proxy de Vite; en producción tiene que hacerlo el proxy inverso.
 - Sin 2FA (TOTP) ni alta de tenants (onboarding). Los usuarios se crean aceptando una invitación (#18) o con `pnpm db:seed` (desarrollo). Aceptar la invitación hace las veces de verificación del email.
 - Sin listado/cierre de "mis sesiones" ni revocación de sesiones por un admin. Las sesiones vencidas o revocadas quedan en `sessions` (no hay job de limpieza todavía; no afectan la seguridad).

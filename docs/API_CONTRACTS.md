@@ -26,6 +26,8 @@ Sesión por cookie (`__Host-zd_session`; `zd_session` en desarrollo por http). T
 - `Content-Type: application/json` si lleva cuerpo → si no, `415 UNSUPPORTED_MEDIA_TYPE`;
 - `X-CSRF-Token: <csrfToken>` si lleva cookie de sesión (salvo `login`, `forgot-password`, `reset-password`) → si no, `403 CSRF_TOKEN_INVALID`.
 
+**Tiempo restante de la sesión.** Toda respuesta autenticada por una sesión válida (cualquier endpoint, `2xx` o `4xx` que no sea `401`), ya con la renovación aplicada, lleva dos headers con **segundos enteros** restantes: `X-Session-Idle-Remaining` (por inactividad; nunca supera al otro) y `X-Session-Absolute-Remaining` (tiempo máximo de la sesión). Son segundos y no fechas para que el reloj del cliente no importe. No hay endpoint propio: el panel los lee de cada respuesta y, para renovar a pedido, llama a `GET /auth/me`. No aparecen en respuestas `401` ni en `logout`. Constantes en `@zestia/contracts` (`SESSION_IDLE_REMAINING_HEADER`, `SESSION_ABSOLUTE_REMAINING_HEADER`).
+
 Todas las respuestas llevan `Cache-Control: no-store`. Errores de este módulo: `{ "statusCode": 401, "code": "INVALID_CREDENTIALS" }` (códigos en `authErrorCodeSchema`); los de validación: `400 { code: "VALIDATION_FAILED", issues: [{ path, message }] }`, sin devolver los valores enviados.
 
 | Método y ruta | Cuerpo | Respuesta OK | Errores |

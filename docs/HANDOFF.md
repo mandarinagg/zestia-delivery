@@ -1,19 +1,19 @@
 # Handoff — estado del trabajo
 
-> Última actualización: **2026-11-20** (vista de auditoría en la web, #17, y cambio de contraseña en la web, #14). Antes: 2026-11-18 (#16, #17, login web, #19 y #18). Punto de partida para la próxima sesión (humana o de agentes).
+> Última actualización: **2026-11-25** (aviso de vencimiento de sesión en el panel, #14). Antes: 2026-11-20 (vista de auditoría en la web, #17, y cambio de contraseña, #14) y 2026-11-18 (#16, #17, login web, #19 y #18). Punto de partida para la próxima sesión (humana o de agentes).
 > Leer junto con [`CLAUDE.md`](../CLAUDE.md), [`ROADMAP.md`](ROADMAP.md) y [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
 
 ## Resumen
 
 Release **R1 — Fundaciones** en curso. Ya están el monorepo, la multi-tenancy con RLS, la autenticación con sesiones de servidor y el sistema de diseño **"Riel"**, con prototipos navegables. Todo corre **en local** con Docker Compose. El pase a producción va a los **servidores propios** del dueño y se define más adelante; ADR-013 (hosting cloud) queda pospuesto.
 
-**Rama más reciente:** `feat/14-cambio-contrasena`, que incluye todo lo de abajo. Verificada el 2026-11-20:
+**Rama más reciente:** `feat/14-aviso-inactividad`, que incluye todo lo de abajo. Verificada el 2026-11-25:
 
 - `lint`, `typecheck` y `build` pasan; Prettier pasa en los archivos cambiados.
-- Web: **198 tests** (169 + 22 de la auditoría y las fechas por zona + 7 del cambio de contraseña). El resto no cambió desde `feat/18-usuarios` (api 254, contracts 60, auth 45, domain 2).
-- Cambio de contraseña probado contra la API real (con un usuario del seed, después restaurado): actual incorrecta `400`, cierra las otras sesiones, esta sigue y el token CSRF viejo da `403`.
-- Vista de auditoría probada contra la API real: crear, editar, suspender y agregar sucursal quedan con sus cambios; filtros de área, fecha, persona y cursor; `403` para un Operador; otra empresa no ve nada.
-- El contraste AA pasa: 150/150 pares.
+- Tests: web **220** (198 + 15 del aviso + 7 del reloj de sesión), api **258** (254 + 4 de los headers de tiempo restante). Sin cambios: contracts 60, auth 45, domain 2.
+- Headers `X-Session-Idle-Remaining` / `X-Session-Absolute-Remaining` verificados con `curl` contra la API real (login, `me`, ruta de tenant con `403`; sin sesión, nada). No se probó el aviso en el navegador contra la API real.
+- La migración `20261125120000_session_remaining_seconds` cambia `auth_session_lookup`: `pnpm db:migrate` en la base local (ya aplicada en la de esta máquina).
+- Antes (2026-11-20): el cambio de contraseña se probó contra la API real (con un usuario del seed, después restaurado) y la vista de auditoría también; el contraste AA pasa 150/150 pares.
 - Los tests de la web esperan hasta 3 s en `findBy…`/`waitFor` (`test-setup.ts`): con 1 s fallaban al azar con la máquina cargada.
 
 ## Ramas
@@ -33,11 +33,12 @@ Release **R1 — Fundaciones** en curso. Ya están el monorepo, la multi-tenancy
 | `feat/19-comercios` | Comercios y sucursales: API, auditoría y pantallas | `feat/14-login-web` |
 | `feat/18-usuarios` | Usuarios del tenant e invitaciones por email: API, auditoría y pantallas (pusheada a GitHub) | `feat/19-comercios` |
 | `feat/17-auditoria-web` | Vista de auditoría en Configuración, pestañas de Configuración | `feat/18-usuarios` |
-| **`feat/14-cambio-contrasena`** | Cambiar contraseña desde el menú de usuario del panel. **Rama más reciente: incluye todo lo anterior** | `feat/17-auditoria-web` |
+| `feat/14-cambio-contrasena` | Cambiar contraseña desde el menú de usuario del panel | `feat/17-auditoria-web` |
+| **`feat/14-aviso-inactividad`** | Aviso antes de que venza la sesión (API: headers de tiempo restante; web: diálogo con cuenta regresiva). **Rama más reciente: incluye todo lo anterior** | `feat/14-cambio-contrasena` |
 
 Flujo acordado: commits locales en ramas `feat/…`. El dueño decide cuándo pushear y cuándo mergear a `main`.
 
-**En GitHub** (2026-11-20): `feat/18-usuarios`, `feat/17-auditoria-web` y `feat/14-cambio-contrasena`. Para seguir en otra PC: `gh auth login -s workflow`, `gh auth setup-git`, clonar y `git checkout feat/14-cambio-contrasena` (contiene todas las demás). Ninguna está mergeada a `main` todavía.
+**En GitHub** (2026-11-20): `feat/18-usuarios`, `feat/17-auditoria-web` y `feat/14-cambio-contrasena`. `feat/14-aviso-inactividad` todavía no se pusheó. Para seguir en otra PC: `gh auth login -s workflow`, `gh auth setup-git`, clonar y `git checkout feat/14-aviso-inactividad` (contiene todas las demás; hasta que se pushee, `feat/14-cambio-contrasena`). Ninguna está mergeada a `main` todavía.
 
 ## Issues
 
@@ -47,7 +48,7 @@ Flujo acordado: commits locales en ramas `feat/…`. El dueño decide cuándo pu
 | #3 Hosting (ADR-013) | ⏸ Pospuesto: servidores propios, se ve al pasar a producción |
 | #13 Monorepo, CI y entorno local | ✅ Hecho |
 | #15 Multi-tenancy con RLS | ✅ Hecho |
-| #14 Autenticación y sesiones | ✅ Hecho: backend, ingreso en la web (`feat/14-login-web`) y cambio de contraseña (`feat/14-cambio-contrasena`) |
+| #14 Autenticación y sesiones | ✅ Hecho: backend, ingreso en la web (`feat/14-login-web`), cambio de contraseña (`feat/14-cambio-contrasena`) y aviso de vencimiento (`feat/14-aviso-inactividad`) |
 | #20 Base de UI | ✅ Hecho: sistema + prototipos, sin conectar a la API |
 | #16 Roles fijos y guardas de permisos | ✅ Hecho en `feat/16-permisos` (matriz en `packages/auth`, `@RequirePermission()`) |
 | #17 Auditoría transversal | ✅ Backend en `feat/17-auditoria` (`recordChange` + `auditDiff`, `GET /audit-logs`); vista web en `feat/17-auditoria-web` |
@@ -129,7 +130,13 @@ pnpm dev             # API :3000 · web :5173
 
    Detalle en [`UI.md`](UI.md#patrones), límites en [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
 7. ~~**Cambio de contraseña en la web (#14).**~~ Hecho en `feat/14-cambio-contrasena`: diálogo desde el menú de usuario del panel. Guarda el `csrfToken` nuevo que devuelve la API al rotar la sesión. Detalle en [`UI.md`](UI.md#sesión-en-la-web).
-8. **Siguiente:** aviso antes de que venza la sesión por inactividad, y revisar con el dueño el [`ROADMAP.md`](ROADMAP.md) para lo que queda de R1.
+8. **Aviso de vencimiento de sesión (#14)** — hecho en `feat/14-aviso-inactividad` (parcial):
+   - API sin endpoints nuevos: `auth_session_lookup` devuelve los segundos restantes y la API los manda en `X-Session-Idle-Remaining` y `X-Session-Absolute-Remaining` (también al hacer login y cambiar la contraseña);
+   - web: `lib/session-clock.ts` (vencimientos compartidos entre pestañas) y `SessionExpiryNotice` en `PanelLayout`: aviso 2 minutos antes, "Seguir conectado" o "Cerrar sesión", aviso sin extender si manda el tiempo máximo, y al llegar a cero se pregunta al servidor;
+   - detalle en [`UI.md`](UI.md#sesión-en-la-web) y [`SECURITY.md`](SECURITY.md#sesiones-de-servidor).
+
+   Falta (en [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md)): el aviso solo está en `/panel/*` (no en `/comercio`, `/repartidor` ni prototipos), "inactividad" cuenta pedidos a la API y no mouse o teclado, y la hora de fin va en `America/Asuncion` hasta que la sesión traiga la zona del tenant. Hay que probarlo a mano en el navegador (por ejemplo con `SESSION_IDLE_TIMEOUT_MINUTES=3` en `apps/api/.env`).
+9. **Siguiente:** revisar con el dueño el [`ROADMAP.md`](ROADMAP.md) para lo que queda de R1.
 
 ## Pendientes y avisos
 

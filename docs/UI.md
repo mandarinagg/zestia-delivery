@@ -23,7 +23,7 @@ El panel exige iniciar sesión (usuarios del seed, contraseña `SEED_USER_PASSWO
 | `/prototipo/seguimiento` | **Prototipo.** Seguimiento público que ve el cliente final. |
 | `/ingreso`, `/ingreso/empresa` | **Real.** Ingreso y selector de empresa (API `/auth`). |
 | `/olvide-contrasena`, `/restablecer-contrasena#token=…` | **Real.** Pedir el enlace y crear contraseña nueva (el enlace llega por email; en local, a Mailpit). |
-| `/panel/*`, `/comercio`, `/repartidor` | Rutas reales **con sesión**: sin sesión van a `/ingreso`; cada rol va a su área. Las secciones son placeholders que enlazan a su prototipo. |
+| `/panel/*`, `/comercio`, `/repartidor` | Rutas reales **con sesión**: sin sesión van a `/ingreso`; cada rol va a su área. Las secciones son placeholders que enlazan a su prototipo. El aviso de vencimiento de sesión vive solo en `/panel/*`. |
 | `/t/:token` | Seguimiento público (placeholder). |
 
 ### Sesión en la web
@@ -33,7 +33,14 @@ El panel exige iniciar sesión (usuarios del seed, contraseña `SEED_USER_PASSWO
 - Las rutas protegidas verifican la sesión en `beforeLoad` (`router.tsx`). Un 401 de cualquier llamada limpia la sesión y vuelve a `/ingreso?redirect=…`. `safeRedirect()` solo acepta rutas internas.
 - La navegación esconde lo que el rol no puede usar (`permission` en `nav.ts`).
 - **Cambiar contraseña** (menú de usuario del panel, `ChangePasswordDialog`): pide la actual y la nueva dos veces, con los mismos requisitos en vivo que el restablecimiento, más "Distinta de la actual" (solo lo pide la web). La API cierra las demás sesiones y **rota esta**: la respuesta trae un `csrfToken` nuevo que se guarda en la sesión; sin eso, la siguiente acción daría `403 CSRF_TOKEN_INVALID`. Actual incorrecta: error en el campo, con foco. Demasiados intentos: cuánto esperar. Sesión vencida: vuelve al ingreso.
-- Tests: `src/test/fake-api.ts` emula `/api/v1/auth` con el mismo contrato (CSRF incluido). `test-setup.ts` arranca cada test con una sesión de Propietario.
+- **Aviso de vencimiento de sesión** (`SessionExpiryNotice`, montado solo en `PanelLayout`):
+  - **De dónde sale el tiempo:** `api.ts` lee `X-Session-Idle-Remaining` y `X-Session-Absolute-Remaining` (segundos) de cada respuesta OK y `lib/session-clock.ts` los convierte a instantes de *este* reloj. Se comparten entre pestañas con `localStorage` + evento `storage`, y siempre vale el vencimiento **más tardío** (otra pestaña activa renueva la misma sesión). Logout, `401` y un login nuevo lo borran.
+  - **Por inactividad:** 2 minutos antes (`SESSION_WARNING_MS`) aparece un `alertdialog` "Tu sesión va a cerrarse por inactividad" con cuenta regresiva `mm:ss`, "Seguir conectado" (`GET /auth/me`: renueva y trae los headers nuevos) y "Cerrar sesión" (el logout de siempre). El foco arranca en "Seguir conectado"; no se cierra con Escape ni clic afuera (hay que elegir). Si otra pestaña renueva, se cierra solo.
+  - **Por tiempo máximo:** si el absoluto es el que llega primero, el aviso no tiene botón para extender: "Tu sesión termina a las HH:MM. Guardá tus cambios y volvé a ingresar", solo "Entendido" (hora en `America/Asuncion` hasta que la sesión traiga la zona del tenant).
+  - **Al llegar a cero:** no se confía en el reloj local: se pregunta al servidor (`GET /auth/me`). `401` → limpia la sesión y va a `/ingreso?reason=idle|absolute`, que muestra "Tu sesión se cerró por inactividad" (o "llegó a su duración máxima") en un aviso `role="status"`; `200` → otra pestaña renovó, sigue sin aviso. Esa consulta renueva la sesión, por eso se hace **solo** al llegar a cero y a pedido, nunca en polling.
+  - **Accesibilidad:** la cuenta regresiva es un `role="timer"` con `aria-live="off"` (no se anuncia cada segundo); el aviso se lee una vez, al abrir el diálogo, por su descripción. Sin animaciones propias; la entrada del diálogo respeta `prefers-reduced-motion` desde el CSS global.
+  - **Timers:** un solo `setTimeout` reprogramado cuando cambian los vencimientos, y un intervalo de 1 s solo con el diálogo a la vista.
+- Tests: `src/test/fake-api.ts` emula `/api/v1/auth` con el mismo contrato (CSRF incluido), y manda los headers de tiempo restante con valores controlables (`fakeApi.idleRemaining`, `fakeApi.absoluteRemaining`; `null` = sin header). `test-setup.ts` arranca cada test con una sesión de Propietario. Los tests del aviso usan `vi.useFakeTimers({ shouldAdvanceTime: true })` (con el reloj parado `findBy…` no avanza).
 
 Los prototipos usan datos **obviamente falsos** (`DEMO-1043`, "Lomitería Demo", "Envíos Ejemplo
 S.A."), llevan el rótulo **Prototipo** arriba (`PrototypeBanner`, `role="note"`) y no llaman a la
