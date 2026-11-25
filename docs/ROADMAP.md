@@ -47,6 +47,8 @@ gantt
 
 **Gate:** 2 tenants aislados en entorno de staging, tests de aislamiento en verde.
 
+> **Desvío (2026-11-25):** sin staging (ADR-013 pospuesto), el gate se valida en local con Docker Compose: 2 empresas del seed aisladas por RLS y la suite de aislamiento en verde. Se revalida en los servidores propios antes de producción.
+
 ## R2 — Operación Core / MVP (5 semanas)
 
 - Zonas por barrio + tarifas + simulador.

@@ -137,10 +137,10 @@ pnpm dev             # API :3000 · web :5173
    - pasó por una revisión independiente: el hallazgo serio (el chequeo a cero renovaba la sesión con `/auth/me`, así que un panel abandonado no vencía por inactividad) se arregló con `session-status` y `ceil`. También se arreglaron los headers en respuestas no-ok (salvo `401`), la generación de sesión y la accesibilidad del aviso y del motivo en `/ingreso`.
 
    Falta (en [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md)): el aviso solo está en `/panel/*` (no en `/comercio`, `/repartidor` ni prototipos), "inactividad" cuenta pedidos a la API y no mouse o teclado, y la hora de fin va en `America/Asuncion` hasta que la sesión traiga la zona del tenant. Hay que probarlo a mano en el navegador (por ejemplo con `SESSION_IDLE_TIMEOUT_MINUTES=3` en `apps/api/.env`).
-9. **Siguiente.** Con esto están todos los ítems de R1 del [`ROADMAP.md`](ROADMAP.md). Quedan tres decisiones del dueño:
-   - **Prueba manual del aviso** en el navegador contra la API real, con `SESSION_IDLE_TIMEOUT_MINUTES=3` y dos pestañas.
-   - **Gate de R1:** pide "2 tenants aislados en staging", pero no hay staging (ADR-013 pospuesto). Propuesta: validarlo en local con Docker Compose y anotarlo como desvío en el roadmap.
-   - **Merge a `main`:** abrir los PR en orden (o uno integrador desde `feat/14-aviso-inactividad`) para que el CI corra por primera vez en GitHub Actions.
+9. **Siguiente.** Con esto están todos los ítems de R1 del [`ROADMAP.md`](ROADMAP.md). Decisiones del dueño (2026-11-25):
+   - **Prueba manual del aviso** (pendiente; el dueño la postergó) en el navegador contra la API real, con `SESSION_IDLE_TIMEOUT_MINUTES=3` y dos pestañas.
+   - **Gate de R1:** validado en local con Docker Compose (2 empresas del seed aisladas por RLS, suite de aislamiento en verde), sin staging. Desvío anotado en [`ROADMAP.md`](ROADMAP.md).
+   - **Merge a `main`:** el dueño eligió un único PR integrador ([#33](https://github.com/mandarinagg/zestia-delivery/pull/33)) desde `feat/14-aviso-inactividad` a `main`, para que el CI corra por primera vez en GitHub Actions.
 
 ## Pendientes y avisos
 
