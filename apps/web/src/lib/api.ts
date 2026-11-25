@@ -1,5 +1,6 @@
 import { CSRF_HEADER, errorResponseSchema } from '@zestia/contracts';
 import type { z } from 'zod';
+import { recordSessionHeaders } from './session-clock';
 
 /**
  * Cliente HTTP de la API. Misma origen que la web (`/api/...`, proxy de Vite en desarrollo):
@@ -73,6 +74,8 @@ export async function api<S extends z.ZodType | undefined = undefined>(
   }
 
   if (!response.ok) throw await toApiError(response);
+  // Toda respuesta de una sesión válida dice cuánto le queda (aviso antes del vencimiento).
+  recordSessionHeaders(response.headers);
   if (!options.schema || response.status === 204) {
     return undefined as S extends z.ZodType ? z.output<S> : void;
   }

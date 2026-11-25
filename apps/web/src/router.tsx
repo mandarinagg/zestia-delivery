@@ -41,6 +41,11 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({ component: () =>
 
 const redirectSearch = z.object({ redirect: z.string().optional().catch(undefined) });
 
+/** El ingreso además puede explicar por qué se cerró la sesión (aviso de vencimiento, #14). */
+const loginSearch = redirectSearch.extend({
+  reason: z.enum(['idle', 'absolute']).optional().catch(undefined),
+});
+
 /**
  * Exige sesión con empresa activa (la decide el servidor; esto solo evita mostrar pantallas
  * que la API igual rechazaría). Sin sesión → ingreso; sin empresa → selector.
@@ -66,7 +71,7 @@ async function requireTenant(
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/ingreso',
-  validateSearch: redirectSearch,
+  validateSearch: loginSearch,
   beforeLoad: async ({ context, search }) => {
     const session = await context.queryClient.ensureQueryData(sessionQuery);
     const membership = activeMembership(session);

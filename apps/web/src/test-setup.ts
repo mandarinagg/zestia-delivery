@@ -19,10 +19,12 @@ globalThis.ResizeObserver ??= class {
 // Los tests de ingreso la cambian con `fakeApi.reset({ as: null })`.
 import { fakeApi } from './test/fake-api';
 import { setCsrfToken } from './lib/api';
+import { clearSessionDeadlines } from './lib/session-clock';
 
 beforeEach(() => {
   fakeApi.reset();
   setCsrfToken(null);
+  clearSessionDeadlines();
   vi.stubGlobal('fetch', fakeApi.fetch);
 });
 

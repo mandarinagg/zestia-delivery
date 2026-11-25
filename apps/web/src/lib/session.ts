@@ -6,6 +6,7 @@ import {
   authSessionResponseSchema,
 } from '@zestia/contracts';
 import { ApiError, api, setCsrfToken } from './api';
+import { clearSessionDeadlines } from './session-clock';
 
 /**
  * Sesión del usuario: `GET /auth/me` cacheado con React Query. `null` = sin sesión.
@@ -23,6 +24,7 @@ export const sessionQuery = queryOptions({
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         setCsrfToken(null);
+        clearSessionDeadlines();
         return null;
       }
       throw error;
@@ -39,7 +41,10 @@ function remember(session: Session): Session {
 /** Guarda una sesión recibida (login, cambio de empresa) sin volver a pedir `me`. */
 export function storeSession(client: QueryClient, session: Session | null): void {
   if (session) remember(session);
-  else setCsrfToken(null);
+  else {
+    setCsrfToken(null);
+    clearSessionDeadlines();
+  }
   client.setQueryData(SESSION_KEY, session);
 }
 

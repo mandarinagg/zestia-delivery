@@ -1,6 +1,8 @@
 import {
   type AuthMembership,
   type AuthSessionResponse,
+  SESSION_ABSOLUTE_REMAINING_HEADER,
+  SESSION_IDLE_REMAINING_HEADER,
   changePasswordRequestSchema,
 } from '@zestia/contracts';
 import { FakeAudit } from './fake-audit';
@@ -125,6 +127,13 @@ class FakeApi {
   loginRetryAfter: number | null = null;
   /** El próximo cambio de contraseña responde 429 con `Retry-After` en segundos. */
   changePasswordRetryAfter: number | null = null;
+  /**
+   * Segundos restantes que la API informa en `X-Session-Idle-Remaining` y
+   * `X-Session-Absolute-Remaining` (como el servidor, solo en respuestas de una sesión válida).
+   * `null` = no manda el header.
+   */
+  idleRemaining: number | null = 30 * 60;
+  absoluteRemaining: number | null = 12 * 3600;
   /** Token CSRF de la sesión: cambia cuando la sesión rota (cambio de contraseña). */
   csrf = CSRF;
   /** Comercios y sucursales (`/merchants`), por empresa. */
@@ -148,6 +157,8 @@ class FakeApi {
     this.loginRetryAfter = null;
     this.changePasswordRetryAfter = null;
     this.csrf = CSRF;
+    this.idleRemaining = 30 * 60;
+    this.absoluteRemaining = 12 * 3600;
     const as = options.as === undefined ? OWNER : options.as;
     this.session = as ? { userId: as.id, activeTenantId: this.defaultTenant(as) } : null;
   }
@@ -159,6 +170,20 @@ class FakeApi {
 
   readonly fetch = async (input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> => {
     if (this.offline) throw new TypeError('Failed to fetch');
+    const response = await this.handle(input, init);
+    // Como la API: tiempo restante en toda respuesta de una sesión válida, nunca en un 401.
+    if (this.session && response.status !== 401) {
+      if (this.idleRemaining !== null) {
+        response.headers.set(SESSION_IDLE_REMAINING_HEADER, String(this.idleRemaining));
+      }
+      if (this.absoluteRemaining !== null) {
+        response.headers.set(SESSION_ABSOLUTE_REMAINING_HEADER, String(this.absoluteRemaining));
+      }
+    }
+    return response;
+  };
+
+  private async handle(input: RequestInfo | URL, init: RequestInit): Promise<Response> {
     const url = new URL(String(input), 'http://web.test');
     const method = (init.method ?? 'GET').toUpperCase();
     const headers = new Headers(init.headers);
@@ -250,7 +275,7 @@ class FakeApi {
         return result ? reply(result) : error(404, 'NOT_FOUND');
       }
     }
-  };
+  }
 
   private tenantName(tenantId: string): string {
     for (const u of this.users) {

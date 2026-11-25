@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
+import { Info } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { ApiError, describeApiError } from '@/lib/api';
 import { activeMembership, homeFor, storeSession } from '@/lib/session';
+import { clearSessionDeadlines } from '@/lib/session-clock';
 import { AuthShell, PasswordField, authLinkClass } from './auth-shell';
 import { authApi, loginSchema, safeRedirect, type LoginValues } from './auth-api';
 import { FormAlert } from './form-alert';
@@ -19,7 +21,14 @@ import { FormAlert } from './form-alert';
  * Con una sola empresa activa el servidor ya la fija y se entra directo; con varias, se pasa
  * al selector de empresa.
  */
-export function LoginPage({ redirect }: { redirect?: string }) {
+export function LoginPage({
+  redirect,
+  reason,
+}: {
+  redirect?: string;
+  /** Por qué se cerró la sesión anterior (aviso de vencimiento del panel). */
+  reason?: 'idle' | 'absolute';
+}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +43,17 @@ export function LoginPage({ redirect }: { redirect?: string }) {
 
   return (
     <AuthShell title="Ingresá al panel" lead="Con el correo de tu empresa.">
+      {reason && !error ? (
+        <p
+          role="status"
+          className="mt-6 flex gap-2.5 rounded-md border border-tone-blue-solid/40 bg-tone-blue-bg p-3 text-sm text-tone-blue-fg"
+        >
+          <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          {reason === 'idle'
+            ? 'Tu sesión se cerró por inactividad. Ingresá de nuevo para seguir.'
+            : 'Tu sesión llegó a su duración máxima. Ingresá de nuevo para seguir.'}
+        </p>
+      ) : null}
       {error ? <FormAlert>{error}</FormAlert> : null}
 
       <form
@@ -43,6 +63,8 @@ export function LoginPage({ redirect }: { redirect?: string }) {
         onSubmit={handleSubmit(async (values) => {
           setError(null);
           try {
+            // Sesión nueva: se olvidan los vencimientos de una anterior (otra persona, otro día).
+            clearSessionDeadlines();
             const session = await authApi.login(values.email, values.password);
             storeSession(queryClient, session);
             const membership = activeMembership(session);

@@ -7,8 +7,8 @@ const company = getRouteApi('/ingreso/empresa');
 
 /** Adaptadores de ruta: leen search/contexto y renderizan la pantalla. */
 export function LoginRoute() {
-  const { redirect } = login.useSearch();
-  return <LoginPage redirect={redirect} />;
+  const { redirect, reason } = login.useSearch();
+  return <LoginPage redirect={redirect} reason={reason} />;
 }
 
 export function CompanyRoute() {

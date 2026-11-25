@@ -16,6 +16,7 @@ import {
 import { createContext, useContext, useState } from 'react';
 import { authApi } from '@/features/auth/auth-api';
 import { ChangePasswordDialog } from '@/features/auth/change-password-dialog';
+import { useLogout } from '@/features/auth/use-logout';
 import { LogoMark, Wordmark } from '@/components/brand/logo';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Avatar } from '@/components/ui/avatar';
@@ -48,6 +49,7 @@ import { useTheme, type Density } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 import { CommandMenu } from './command-menu';
 import { type NavItem, navGroupsFor } from './nav';
+import { SessionExpiryNotice } from './session-expiry-notice';
 import { ShortcutsDialog } from './shortcuts-dialog';
 
 export { PANEL_NAV } from './nav';
@@ -264,22 +266,10 @@ function TenantSwitcher() {
 function UserMenu({ onShortcuts }: { onShortcuts: () => void }) {
   const { density, setDensity } = useTheme();
   const session = useSession();
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const role = activeMembership(session)?.role;
   const name = session?.user.name ?? '';
   const [changingPassword, setChangingPassword] = useState(false);
-
-  async function logout() {
-    try {
-      await authApi.logout();
-    } catch {
-      /* La cookie se borra igual al vencer; localmente se olvida la sesión. */
-    }
-    queryClient.clear();
-    storeSession(queryClient, null);
-    await navigate({ to: '/ingreso' });
-  }
+  const logout = useLogout();
 
   return (
     <>
@@ -468,6 +458,7 @@ export function PanelLayout() {
           onShowShortcuts={() => setShortcutsOpen(true)}
         />
         <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+        <SessionExpiryNotice />
       </div>
     </PanelChromeContext.Provider>
   );
