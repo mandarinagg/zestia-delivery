@@ -26,6 +26,7 @@ Lista honesta de lo que el sistema **no** hace (o aún no). Se actualiza en cada
   - Solo está en el panel (`/panel/*`): `/comercio`, `/repartidor`, los prototipos y las pantallas públicas no avisan. Sin el aviso, al vencer la sesión el próximo pedido manda al ingreso (con `redirect`, sin motivo).
   - La hora de fin del aviso por tiempo máximo se muestra en `America/Asuncion`: la sesión todavía no trae la zona horaria del tenant.
   - Con el equipo suspendido o la pestaña en segundo plano, los timers del navegador se atrasan: el aviso puede llegar tarde, pero al llegar a cero siempre se le pregunta al servidor.
+  - `GET /auth/session-status` no tiene rate limit propio: es un `GET` autenticado y barato (una consulta indexada por hash), que el panel hace una vez al llegar a cero.
   - Los vencimientos se comparten entre pestañas con `localStorage`; sin `localStorage` (modo privado estricto), cada pestaña avisa con lo que le informó la API.
 - Sin CORS: la web y la API se sirven desde el mismo origen. En desarrollo lo resuelve el proxy de Vite; en producción tiene que hacerlo el proxy inverso.
 - Sin 2FA (TOTP) ni alta de tenants (onboarding). Los usuarios se crean aceptando una invitación (#18) o con `pnpm db:seed` (desarrollo). Aceptar la invitación hace las veces de verificación del email.

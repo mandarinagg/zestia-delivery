@@ -10,9 +10,9 @@ Release **R1 — Fundaciones** en curso. Ya están el monorepo, la multi-tenancy
 **Rama más reciente:** `feat/14-aviso-inactividad`, que incluye todo lo de abajo. Verificada el 2026-11-25:
 
 - `lint`, `typecheck` y `build` pasan; Prettier pasa en los archivos cambiados.
-- Tests: web **220** (198 + 15 del aviso + 7 del reloj de sesión), api **258** (254 + 4 de los headers de tiempo restante). Sin cambios: contracts 60, auth 45, domain 2.
-- Headers `X-Session-Idle-Remaining` / `X-Session-Absolute-Remaining` verificados con `curl` contra la API real (login, `me`, ruta de tenant con `403`; sin sesión, nada). No se probó el aviso en el navegador contra la API real.
-- La migración `20261125120000_session_remaining_seconds` cambia `auth_session_lookup`: `pnpm db:migrate` en la base local (ya aplicada en la de esta máquina).
+- Tests: web **229** (198 + los del aviso, el reloj de sesión y el cliente), api **262** (254 + los de los headers de tiempo restante y `session-status`). Sin cambios: contracts 60, auth 45, domain 2.
+- Headers `X-Session-Idle-Remaining` / `X-Session-Absolute-Remaining` y `GET /auth/session-status` verificados con `curl` contra la API real: `session-status` deja `idle_expires_at` y `last_seen_at` como estaban en la DB; `/auth/me` los renueva. No se probó el aviso en el navegador contra la API real.
+- Dos migraciones nuevas sobre `auth_session_lookup` (`pnpm db:migrate`; ya aplicadas en la base de esta máquina): `20261125120000_session_remaining_seconds` (devuelve los restantes) y `20261125140000_session_status_no_renew` (parámetro `p_renew` para consultar sin renovar y `ceil` en lugar de `floor`).
 - Antes (2026-11-20): el cambio de contraseña se probó contra la API real (con un usuario del seed, después restaurado) y la vista de auditoría también; el contraste AA pasa 150/150 pares.
 - Los tests de la web esperan hasta 3 s en `findBy…`/`waitFor` (`test-setup.ts`): con 1 s fallaban al azar con la máquina cargada.
 
@@ -131,8 +131,8 @@ pnpm dev             # API :3000 · web :5173
    Detalle en [`UI.md`](UI.md#patrones), límites en [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
 7. ~~**Cambio de contraseña en la web (#14).**~~ Hecho en `feat/14-cambio-contrasena`: diálogo desde el menú de usuario del panel. Guarda el `csrfToken` nuevo que devuelve la API al rotar la sesión. Detalle en [`UI.md`](UI.md#sesión-en-la-web).
 8. **Aviso de vencimiento de sesión (#14)** — hecho en `feat/14-aviso-inactividad` (parcial):
-   - API sin endpoints nuevos: `auth_session_lookup` devuelve los segundos restantes y la API los manda en `X-Session-Idle-Remaining` y `X-Session-Absolute-Remaining` (también al hacer login y cambiar la contraseña);
-   - web: `lib/session-clock.ts` (vencimientos compartidos entre pestañas) y `SessionExpiryNotice` en `PanelLayout`: aviso 2 minutos antes, "Seguir conectado" o "Cerrar sesión", aviso sin extender si manda el tiempo máximo, y al llegar a cero se pregunta al servidor;
+   - API: `auth_session_lookup` devuelve los segundos restantes (redondeados hacia arriba) y la API los manda en `X-Session-Idle-Remaining` y `X-Session-Absolute-Remaining` (también al hacer login y cambiar la contraseña). Un solo endpoint nuevo, `GET /auth/session-status` (`204`, **no renueva**), para el chequeo al llegar a cero: con `/auth/me` el chequeo mismo alargaba la sesión;
+   - web: `lib/session-clock.ts` (vencimientos compartidos entre pestañas) y `SessionExpiryNotice` en `PanelLayout`: aviso 2 minutos antes, "Seguir conectado" o "Cerrar sesión", aviso sin extender si manda el tiempo máximo, y al llegar a cero se pregunta a `session-status` (con reintento a *restante + 2 s* si quedaban fracciones). Una generación de sesión descarta las respuestas anteriores a un logout o login;
    - detalle en [`UI.md`](UI.md#sesión-en-la-web) y [`SECURITY.md`](SECURITY.md#sesiones-de-servidor).
 
    Falta (en [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md)): el aviso solo está en `/panel/*` (no en `/comercio`, `/repartidor` ni prototipos), "inactividad" cuenta pedidos a la API y no mouse o teclado, y la hora de fin va en `America/Asuncion` hasta que la sesión traiga la zona del tenant. Hay que probarlo a mano en el navegador (por ejemplo con `SESSION_IDLE_TIMEOUT_MINUTES=3` en `apps/api/.env`).

@@ -26,7 +26,9 @@ Sesión por cookie (`__Host-zd_session`; `zd_session` en desarrollo por http). T
 - `Content-Type: application/json` si lleva cuerpo → si no, `415 UNSUPPORTED_MEDIA_TYPE`;
 - `X-CSRF-Token: <csrfToken>` si lleva cookie de sesión (salvo `login`, `forgot-password`, `reset-password`) → si no, `403 CSRF_TOKEN_INVALID`.
 
-**Tiempo restante de la sesión.** Toda respuesta autenticada por una sesión válida (cualquier endpoint, `2xx` o `4xx` que no sea `401`), ya con la renovación aplicada, lleva dos headers con **segundos enteros** restantes: `X-Session-Idle-Remaining` (por inactividad; nunca supera al otro) y `X-Session-Absolute-Remaining` (tiempo máximo de la sesión). Son segundos y no fechas para que el reloj del cliente no importe. No hay endpoint propio: el panel los lee de cada respuesta y, para renovar a pedido, llama a `GET /auth/me`. No aparecen en respuestas `401` ni en `logout`. Constantes en `@zestia/contracts` (`SESSION_IDLE_REMAINING_HEADER`, `SESSION_ABSOLUTE_REMAINING_HEADER`).
+**Tiempo restante de la sesión.** Toda respuesta autenticada por una sesión válida (cualquier endpoint, `2xx` o `4xx` que no sea `401`), ya con la renovación aplicada, lleva dos headers con **segundos enteros** restantes: `X-Session-Idle-Remaining` (por inactividad; nunca supera al otro) y `X-Session-Absolute-Remaining` (tiempo máximo de la sesión). Son segundos y no fechas para que el reloj del cliente no importe, y se **redondean hacia arriba** (mientras la sesión es válida son al menos 1): el cliente nunca cree que vence antes que el servidor. También salen en `login` y `change-password`, que crean o rotan la sesión. No aparecen en respuestas `401` ni en `logout`. Constantes en `@zestia/contracts` (`SESSION_IDLE_REMAINING_HEADER`, `SESSION_ABSOLUTE_REMAINING_HEADER`).
+
+`GET /auth/session-status` consulta esos tiempos **sin renovar la sesión** (ver la tabla). El resto de los endpoints autenticados, `GET /auth/me` incluido, renuevan la inactividad como siempre.
 
 Todas las respuestas llevan `Cache-Control: no-store`. Errores de este módulo: `{ "statusCode": 401, "code": "INVALID_CREDENTIALS" }` (códigos en `authErrorCodeSchema`); los de validación: `400 { code: "VALIDATION_FAILED", issues: [{ path, message }] }`, sin devolver los valores enviados.
 
@@ -35,6 +37,7 @@ Todas las respuestas llevan `Cache-Control: no-store`. Errores de este módulo: 
 | `POST /auth/login` | `{ email, password }` | `200` `AuthSession` + `Set-Cookie` (rota la sesión previa) | `401 INVALID_CREDENTIALS` (cualquier motivo), `429 TOO_MANY_ATTEMPTS` + `Retry-After` |
 | `POST /auth/logout` | — | `204`, borra la cookie (idempotente) | — |
 | `GET /auth/me` | — | `200` `AuthSession` | `401 UNAUTHENTICATED` |
+| `GET /auth/session-status` | — | `204` sin cuerpo, con `X-Session-Idle-Remaining` y `X-Session-Absolute-Remaining`. **No renueva** la sesión (no toca `idle_expires_at` ni `last_seen_at`). Ruta de sesión, no de tenant: sin `@RequirePermission`, como el resto de `/auth/*`; solo habla de la sesión de la cookie | `401 UNAUTHENTICATED` |
 | `POST /auth/switch-tenant` | `{ tenantId }` | `200` `AuthSession` con el nuevo `activeTenantId` | `401`, `403 NO_ACTIVE_MEMBERSHIP` (sin membresía, membresía inactiva o tenant no `ACTIVE`) |
 | `POST /auth/change-password` | `{ currentPassword, newPassword }` | `200 { csrfToken }` + `Set-Cookie` nueva; revoca las demás sesiones | `400 INVALID_CURRENT_PASSWORD`, `401`, `429` |
 | `POST /auth/forgot-password` | `{ email }` | `202 { message }` (siempre el mismo) | `429` |
