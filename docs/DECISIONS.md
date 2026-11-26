@@ -5,17 +5,17 @@ Formato liviano. Estados: **Propuesto → Aceptado | Rechazado | Reemplazado**. 
 | # | Decisión | Estado | Fecha |
 |---|----------|--------|-------|
 | 001 | Monolito modular | Aceptado | 2026-11-12 |
-| 002 | Monorepo pnpm + Turborepo | Propuesto | 2026-11-12 |
-| 003 | Backend NestJS + TypeScript | Propuesto | 2026-11-12 |
-| 004 | PostgreSQL + Prisma + RLS | Propuesto | 2026-11-12 |
-| 005 | Jobs con pg-boss (sin Redis inicial) | Propuesto | 2026-11-12 |
-| 006 | Tiempo real con SSE | Propuesto | 2026-11-12 |
-| 007 | Montos enteros en unidad mínima | Propuesto | 2026-11-12 |
-| 008 | Outbox transaccional | Propuesto | 2026-11-12 |
-| 009 | Incidencias ortogonales al estado | Propuesto | 2026-11-12 |
-| 010 | API de ingreso genérica; ZESTIA como cliente | Propuesto | 2026-11-12 |
-| 011 | Zonas por lista de barrios en MVP | Propuesto | 2026-11-12 |
-| 012 | Frontend React + Vite + TanStack + shadcn/ui; PWA en la misma app | Propuesto | 2026-11-12 |
+| 002 | Monorepo pnpm + Turborepo | Aceptado | 2026-11-17 |
+| 003 | Backend NestJS + TypeScript | Aceptado | 2026-11-17 |
+| 004 | PostgreSQL + Prisma + RLS | Aceptado | 2026-11-17 |
+| 005 | Jobs con pg-boss (sin Redis inicial) | Aceptado | 2026-11-17 |
+| 006 | Tiempo real con SSE | Aceptado | 2026-11-17 |
+| 007 | Montos enteros en unidad mínima | Aceptado | 2026-11-17 |
+| 008 | Outbox transaccional | Aceptado | 2026-11-17 |
+| 009 | Incidencias ortogonales al estado | Aceptado | 2026-11-17 |
+| 010 | API de ingreso genérica; ZESTIA como cliente | Aceptado | 2026-11-17 |
+| 011 | Zonas por lista de barrios en MVP | Aceptado | 2026-11-17 |
+| 012 | Frontend React + Vite + TanStack + shadcn/ui; PWA en la misma app | Aceptado | 2026-11-17 |
 | 013 | Hosting / proveedor cloud | Pendiente | — |
 
 ---
@@ -31,6 +31,12 @@ Formato liviano. Estados: **Propuesto → Aceptado | Rechazado | Reemplazado**. 
 
 ### ADR-004 — PostgreSQL + Prisma + RLS
 **Contexto:** aislamiento tenant es el riesgo #1. **Decisión:** filtro en aplicación **y** RLS en DB (`SET LOCAL app.tenant_id`). Prisma por productividad y migraciones. **Alternativas:** Drizzle (más control SQL), Kysely. **Consecuencias:** las transacciones deben pasar por un wrapper que setee el tenant; tests verifican RLS. Revisar si Prisma limita queries complejas → evaluar Drizzle en spike de R1.
+
+**Resultado del spike (2026-11-17, issue #15):** Prisma **sirve** con RLS; se continúa con Prisma. Versión probada: Prisma 7.10 (generador `prisma-client` + driver adapter `@prisma/adapter-pg`, pool `pg`) sobre PostgreSQL 17, conectando con un rol sin `BYPASSRLS` ni ownership. Verificado con tests automáticos contra Postgres real (`apps/api/src/modules/tenancy/prisma-rls.int.test.ts` y `rls.int.test.ts`, corren en CI):
+- `SELECT set_config('app.tenant_id', $1, true)` (parametrizado vía `$executeRaw` con tagged template) dentro de `$transaction(async (tx) => …)` aplica a **todas** las queries de la transacción: misma conexión (`pg_backend_pid()` constante) y el contexto se ve en cada query del modelo y en SQL crudo.
+- Sin fuga por el pool: con un pool de 1 conexión, la operación siguiente en la **misma** conexión ve `current_setting = ''` y cero filas, tanto después de COMMIT como de ROLLBACK. Por eso las políticas usan `NULLIF(…, '')::uuid` (sin `NULLIF`, el `''` residual rompería el cast).
+- 50 transacciones concurrentes alternando dos tenants sobre un pool compartido (y 30 vía `TenantDb` con `AsyncLocalStorage`) ven solo su tenant.
+- Límites conocidos (no bloqueantes): toda request de tenant ocupa una conexión durante su transacción interactiva (dimensionar `DATABASE_POOL_MAX`; timeout de 15 s); las políticas RLS no se expresan en `schema.prisma` y viven en SQL de migraciones (un test de catálogo exige RLS forzada en toda tabla accesible por la app). Queries complejas: sin evidencia de bloqueo todavía; `$queryRaw` tipado cubre los casos puntuales. No se evaluó Drizzle.
 
 ### ADR-005 — pg-boss
 **Decisión:** colas y jobs sobre Postgres. **Motivo:** una pieza menos de infraestructura; volumen MVP bajo. **Revisar si:** > 50 jobs/s sostenidos o latencia de cola relevante → Redis/BullMQ.

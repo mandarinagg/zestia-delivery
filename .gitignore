@@ -6,6 +6,9 @@ build/
 coverage/
 *.tsbuildinfo
 
+# Código generado (Prisma: `pnpm --filter @zestia/api db:generate`)
+apps/api/src/generated/
+
 # Entorno y secretos
 .env
 .env.*

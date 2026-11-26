@@ -1,0 +1,13 @@
+node_modules
+dist
+build
+.turbo
+coverage
+pnpm-lock.yaml
+*.tsbuildinfo
+docs/archive
+apps/web/src/routeTree.gen.ts
+*.md
+docs
+.github/ISSUE_TEMPLATE
+apps/api/src/generated

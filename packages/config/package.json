@@ -1,0 +1,27 @@
+{
+  "name": "@zestia/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ESLint, TSConfig y Prettier compartidos",
+  "exports": {
+    "./eslint": "./eslint/index.mjs",
+    "./prettier": "./prettier/index.mjs",
+    "./tsconfig/base.json": "./tsconfig/base.json",
+    "./tsconfig/node.json": "./tsconfig/node.json",
+    "./tsconfig/react.json": "./tsconfig/react.json"
+  },
+  "dependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-boundaries": "^7.4.4",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
+    "typescript-eslint": "^8.73.0"
+  },
+  "peerDependencies": {
+    "eslint": "^10.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "~6.0.0"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "extends": "@zestia/config/tsconfig/node.json",
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "outDir": "dist",
+    "rootDir": "src",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "sourceMap": true,
+    "incremental": false
+  },
+  "include": ["src"]
+}

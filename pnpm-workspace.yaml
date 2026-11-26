@@ -1,0 +1,13 @@
+packages:
+  - apps/*
+  - packages/*
+allowBuilds:
+  '@swc/core': true
+  esbuild: true
+  # Prisma descarga el schema engine (migraciones) en su postinstall.
+  '@prisma/engines': true
+  prisma: true
+  # Dependencias opcionales de testcontainers (SSH a Docker remoto / protobuf): no hacen falta.
+  cpu-features: false
+  ssh2: false
+  protobufjs: false

@@ -1,0 +1,317 @@
+// Esquema de datos de ZESTIA DELIVERY. Convenciones: docs/DATA_MODEL.md.
+//  - PK UUID v7 (generado por Prisma), tablas y columnas en snake_case.
+//  - Fechas `timestamptz` (UTC). Montos BIGINT en unidad mínima (ADR-007).
+//  - Toda tabla de negocio tiene `tenant_id NOT NULL` y RLS forzada (ver la migración
+//    `*_tenancy_rls`). Las políticas RLS no se expresan en Prisma: viven en el SQL de migraciones.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+
+  @@map("tenant_status")
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+
+  @@map("user_status")
+}
+
+/// Roles fijos del MVP (docs/SPEC.md §3). Finanzas llega en R5; el soporte de plataforma
+/// no es una membresía de tenant.
+enum MembershipRole {
+  OWNER
+  ADMIN
+  OPERATOR
+  SUPERVISOR
+  COURIER
+  MERCHANT
+
+  @@map("membership_role")
+}
+
+enum MembershipStatus {
+  ACTIVE
+  DISABLED
+
+  @@map("membership_status")
+}
+
+enum MerchantStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+
+  @@map("merchant_status")
+}
+
+/// Empresa de delivery (cliente del SaaS). RLS: visible solo si es el tenant activo
+/// o si el usuario del contexto tiene membresía en él.
+model Tenant {
+  id        String       @id @default(uuid(7)) @db.Uuid
+  name      String
+  slug      String       @unique
+  timezone  String       @default("America/Asuncion")
+  currency  String       @default("PYG") @db.Char(3)
+  status    TenantStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  memberships Membership[]
+  merchants   Merchant[]
+  branches    MerchantBranch[]
+  invitations Invitation[]
+  sessions    Session[]
+
+  @@map("tenants")
+}
+
+/// Usuario global (sin tenant_id). El email se guarda normalizado (trim + minúsculas; CHECK en
+/// la migración `*_auth_sessions`). La credencial vive aparte (`UserCredential`), fuera del
+/// alcance del rol de la aplicación. 2FA: más adelante.
+model User {
+  id        String     @id @default(uuid(7)) @db.Uuid
+  email     String     @unique
+  name      String
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  memberships         Membership[]
+  credential          UserCredential?
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
+  invitationsSent     Invitation[]         @relation("InvitationInviter")
+  invitationsAccepted Invitation[]         @relation("InvitationAcceptedUser")
+
+  @@map("users")
+}
+
+/// Une usuario ↔ tenant ↔ rol. Es la fuente del tenant activo de una request.
+model Membership {
+  id        String           @id @default(uuid(7)) @db.Uuid
+  tenantId  String           @map("tenant_id") @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  role      MembershipRole
+  status    MembershipStatus @default(ACTIVE)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+  @@index([tenantId, role, status])
+  @@map("memberships")
+}
+
+/// Invitación a un tenant (#18). Solo se guarda el SHA-256 del token. Una sola abierta por
+/// email y tenant (índice parcial en la migración). Se acepta vía `auth_invitation_accept`.
+model Invitation {
+  id             String         @id @default(dbgenerated("app_uuid_v7()")) @db.Uuid
+  tenantId       String         @map("tenant_id") @db.Uuid
+  email          String
+  role           MembershipRole
+  tokenHash      Bytes          @unique @map("token_hash")
+  invitedById    String?        @map("invited_by") @db.Uuid
+  expiresAt      DateTime       @map("expires_at") @db.Timestamptz(3)
+  acceptedAt     DateTime?      @map("accepted_at") @db.Timestamptz(3)
+  acceptedUserId String?        @map("accepted_user_id") @db.Uuid
+  revokedAt      DateTime?      @map("revoked_at") @db.Timestamptz(3)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  invitedBy    User?  @relation("InvitationInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+  acceptedUser User?  @relation("InvitationAcceptedUser", fields: [acceptedUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@map("invitations")
+}
+
+/// Comercio asociado. Tabla de negocio mínima de R1 para probar el aislamiento de punta a punta;
+/// el CRUD completo es el issue #19.
+model Merchant {
+  id        String         @id @default(uuid(7)) @db.Uuid
+  tenantId  String         @map("tenant_id") @db.Uuid
+  name      String
+  ruc       String?
+  phone     String?
+  status    MerchantStatus @default(ACTIVE)
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime?      @map("deleted_at") @db.Timestamptz(3)
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  branches MerchantBranch[]
+
+  // (tenant_id, id) permite FKs compuestas desde tablas hijas: una sucursal no puede
+  // apuntar a un comercio de otro tenant.
+  // Además (migración *_merchant_branches): teléfono E.164, RUC `n-d`, archivado ⇔ deleted_at,
+  // y nombre único (sin mayúsculas) entre los vigentes del tenant.
+  @@unique([tenantId, id])
+  @@index([tenantId, status, name, id], map: "merchants_tenant_status_name_idx")
+  @@map("merchants")
+}
+
+/// Sucursal de retiro de un comercio (#19). Archivar = `deletedAt`. `openingHours` lo valida la
+/// API: { "mon": [{ "from": "08:00", "to": "12:00" }], … }.
+model MerchantBranch {
+  id           String    @id @default(dbgenerated("app_uuid_v7()")) @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  merchantId   String    @map("merchant_id") @db.Uuid
+  name         String
+  address      String
+  neighborhood String
+  city         String
+  references   String?
+  phone        String?
+  openingHours Json      @default("{}") @map("opening_hours")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  merchant Merchant @relation(fields: [tenantId, merchantId], references: [tenantId, id], onDelete: Restrict, onUpdate: NoAction, map: "merchant_branches_merchant_fkey")
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "merchant_branches_tenant_fkey")
+
+  @@unique([tenantId, id])
+  @@map("merchant_branches")
+}
+
+// --- Autenticación (issue #14) -------------------------------------------------------------
+// Estas tablas NO tienen GRANT para `zestia_app`: la API solo las toca a través de funciones
+// SECURITY DEFINER acotadas (migración `*_auth_sessions`, docs/SECURITY.md "Autenticación").
+// Los ids los genera la DB (`app_uuid_v7()`), porque las filas las insertan esas funciones.
+
+enum AuthAttemptKind {
+  LOGIN
+  PASSWORD_RESET
+  CHANGE_PASSWORD
+
+  @@map("auth_attempt_kind")
+}
+
+enum SessionRevokeReason {
+  LOGOUT
+  ROTATED
+  PASSWORD_CHANGED
+  PASSWORD_RESET
+
+  @@map("session_revoke_reason")
+}
+
+/// Hash Argon2id (formato PHC) de la contraseña. Separado de `users` para que el rol de la
+/// aplicación, que puede leer `users` por RLS, nunca vea hashes.
+model UserCredential {
+  userId            String   @id @map("user_id") @db.Uuid
+  passwordHash      String   @map("password_hash")
+  passwordChangedAt DateTime @default(now()) @map("password_changed_at") @db.Timestamptz(3)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_credentials")
+}
+
+/// Sesión de servidor. Solo se guarda el SHA-256 del token opaco de la cookie.
+/// `activeTenantId` es una preferencia: el guard de tenancy la revalida contra una membresía.
+model Session {
+  id                 String               @id @default(dbgenerated("app_uuid_v7()")) @db.Uuid
+  userId             String               @map("user_id") @db.Uuid
+  tokenHash          Bytes                @unique @map("token_hash")
+  activeTenantId     String?              @map("active_tenant_id") @db.Uuid
+  idleTimeoutSeconds Int                  @map("idle_timeout_seconds")
+  createdAt          DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastSeenAt         DateTime             @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  idleExpiresAt      DateTime             @map("idle_expires_at") @db.Timestamptz(3)
+  absoluteExpiresAt  DateTime             @map("absolute_expires_at") @db.Timestamptz(3)
+  revokedAt          DateTime?            @map("revoked_at") @db.Timestamptz(3)
+  revokedReason      SessionRevokeReason? @map("revoked_reason")
+
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeTenant Tenant? @relation(fields: [activeTenantId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// Intentos de login / pedido de reset / cambio de contraseña, para el rate limit compartido
+/// entre instancias. Claves seudónimas: SHA-256 de la cuenta (email normalizado o id) y de la IP.
+model AuthAttempt {
+  id          String          @id @default(dbgenerated("app_uuid_v7()")) @db.Uuid
+  kind        AuthAttemptKind
+  accountKey  Bytes           @map("account_key")
+  ipKey       Bytes           @map("ip_key")
+  userId      String?         @map("user_id") @db.Uuid
+  succeeded   Boolean         @default(false)
+  lookedUpAt  DateTime?       @map("looked_up_at") @db.Timestamptz(3)
+  attemptedAt DateTime        @default(now()) @map("attempted_at") @db.Timestamptz(3)
+
+  @@index([kind, accountKey, attemptedAt])
+  @@index([kind, ipKey, attemptedAt])
+  @@index([attemptedAt])
+  @@map("auth_attempts")
+}
+
+/// Token de reset de contraseña: un solo uso, vida corta, solo se guarda su SHA-256.
+model PasswordResetToken {
+  id            String    @id @default(dbgenerated("app_uuid_v7()")) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  tokenHash     Bytes     @unique @map("token_hash")
+  expiresAt     DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt        DateTime? @map("used_at") @db.Timestamptz(3)
+  invalidatedAt DateTime? @map("invalidated_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// --- Auditoría (#14 mínima; #17: cambios antes/después y consulta para Propietario/Admin) -----
+
+enum AuditActorType {
+  USER
+  ANONYMOUS
+  SYSTEM
+
+  @@map("audit_actor_type")
+}
+
+/// Registro append-only. `tenantId` NULL = evento previo a elegir tenant (login, reset).
+/// Sin FK a propósito: la auditoría sobrevive a cambios en usuarios/tenants. Sin PII ni secretos
+/// en `metadata`. RLS: la API inserta (tenant del contexto o NULL fuera de él) y lee solo su tenant.
+model AuditLog {
+  id            String         @id @default(dbgenerated("app_uuid_v7()")) @db.Uuid
+  tenantId      String?        @map("tenant_id") @db.Uuid
+  actorType     AuditActorType @map("actor_type")
+  actorId       String?        @map("actor_id") @db.Uuid
+  action        String
+  entityType    String?        @map("entity_type")
+  entityId      String?        @map("entity_id")
+  metadata      Json           @default("{}")
+  /// Cambios antes/después por campo (`auditDiff()`); los datos personales van como `redacted`.
+  changes       Json?
+  correlationId String?        @map("correlation_id")
+  occurredAt    DateTime       @default(now()) @map("occurred_at") @db.Timestamptz(3)
+
+  @@index([tenantId, occurredAt])
+  @@index([occurredAt])
+  @@index([tenantId, entityType, entityId, occurredAt], map: "audit_logs_tenant_entity_idx")
+  @@index([tenantId, id(sort: Desc)], map: "audit_logs_tenant_id_desc_idx")
+  @@map("audit_logs")
+}
