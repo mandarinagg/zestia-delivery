@@ -1,6 +1,6 @@
 # Handoff — estado del trabajo
 
-> Última actualización: **2026-11-25** (aviso de vencimiento de sesión en el panel, #14). Antes: 2026-11-20 (vista de auditoría en la web, #17, y cambio de contraseña, #14) y 2026-11-18 (#16, #17, login web, #19 y #18). Punto de partida para la próxima sesión (humana o de agentes).
+> Última actualización: **2026-11-26** (gate de R1 validado en local y PR integrador [#33](https://github.com/mandarinagg/zestia-delivery/pull/33) con el CI en verde). Antes: 2026-11-25 (aviso de vencimiento de sesión en el panel, #14), 2026-11-20 (vista de auditoría en la web, #17, y cambio de contraseña, #14) y 2026-11-18 (#16, #17, login web, #19 y #18). Punto de partida para la próxima sesión (humana o de agentes).
 > Leer junto con [`CLAUDE.md`](../CLAUDE.md), [`ROADMAP.md`](ROADMAP.md) y [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
 
 ## Resumen
@@ -38,13 +38,13 @@ Release **R1 — Fundaciones** en curso. Ya están el monorepo, la multi-tenancy
 
 Flujo acordado: commits locales en ramas `feat/…`. El dueño decide cuándo pushear y cuándo mergear a `main`.
 
-**En GitHub** (2026-11-25): `feat/18-usuarios`, `feat/17-auditoria-web`, `feat/14-cambio-contrasena` y `feat/14-aviso-inactividad`. Para seguir en otra PC: `gh auth login -s workflow`, `gh auth setup-git`, clonar y `git checkout feat/14-aviso-inactividad` (contiene todas las demás). Ninguna está mergeada a `main` todavía.
+**En GitHub** (2026-11-25): `feat/18-usuarios`, `feat/17-auditoria-web`, `feat/14-cambio-contrasena` y `feat/14-aviso-inactividad`. Para seguir en otra PC: `gh auth login -s workflow`, `gh auth setup-git`, clonar y `git checkout feat/14-aviso-inactividad` (contiene todas las demás). Ninguna está mergeada a `main` todavía: todo entra por el PR integrador [#33](https://github.com/mandarinagg/zestia-delivery/pull/33), que reemplaza a #31 y #32 (siguen abiertos; cerrarlos queda a decisión del dueño).
 
 ## Issues
 
 | Issue | Estado |
 |-------|--------|
-| #2 Aprobar stack (ADR 002–012) | ✅ Hecho (PR #31 sin mergear) |
+| #2 Aprobar stack (ADR 002–012) | ✅ Hecho (incluido en el PR #33, sin mergear) |
 | #3 Hosting (ADR-013) | ⏸ Pospuesto: servidores propios, se ve al pasar a producción |
 | #13 Monorepo, CI y entorno local | ✅ Hecho |
 | #15 Multi-tenancy con RLS | ✅ Hecho |
@@ -140,7 +140,8 @@ pnpm dev             # API :3000 · web :5173
 9. **Siguiente.** Con esto están todos los ítems de R1 del [`ROADMAP.md`](ROADMAP.md). Decisiones del dueño (2026-11-25):
    - **Prueba manual del aviso** (pendiente; el dueño la postergó) en el navegador contra la API real, con `SESSION_IDLE_TIMEOUT_MINUTES=3` y dos pestañas.
    - **Gate de R1:** validado en local con Docker Compose (2 empresas del seed aisladas por RLS, suite de aislamiento en verde), sin staging. Desvío anotado en [`ROADMAP.md`](ROADMAP.md).
-   - **Merge a `main`:** el dueño eligió un único PR integrador ([#33](https://github.com/mandarinagg/zestia-delivery/pull/33)) desde `feat/14-aviso-inactividad` a `main`, para que el CI corra por primera vez en GitHub Actions.
+   - **Merge a `main`:** el dueño eligió un único PR integrador ([#33](https://github.com/mandarinagg/zestia-delivery/pull/33)) desde `feat/14-aviso-inactividad` a `main`, Abierto el 2026-11-25. **Primera corrida del CI en GitHub Actions: en verde** (formato, lint, typecheck, tests y build; Gitleaks sin hallazgos). Tests en CI: web 229, api 262 (con integración y aislamiento vía Testcontainers), contracts 60, auth 45, domain 2. Falta que el dueño lo mergee y decida si cierra #31 y #32.
+   - **Después del merge:** elegir con el dueño el primer issue de R2.
 
 ## Pendientes y avisos
 
@@ -152,7 +153,7 @@ pnpm dev             # API :3000 · web :5173
 - `.claude/worktrees` tiene worktrees viejos que se pueden borrar.
 
 - **Push de workflows:** el token de `gh` necesita el scope `workflow` para pushear `.github/workflows/ci.yml`. En esta máquina ya está habilitado (2026-11-20). En otra PC: `gh auth login -s workflow` y `gh auth setup-git`.
-- **CI en GitHub:** nunca corrió en GitHub Actions. Todo se verificó en local; los tests de integración usan Testcontainers y requieren Docker.
+- **CI en GitHub:** corrió por primera vez en el PR #33 (2026-11-25) y pasó, incluidos los tests de integración con Testcontainers. En local también requieren Docker.
 - **pnpm 12** avisa "Agent skills awaiting approval: @tanstack/react-router" (`pnpm approve`). Es informativo; no se aprobó.
 - **Prototipos:**
   - Usan datos de ejemplo, sin API, SSE ni service worker.
